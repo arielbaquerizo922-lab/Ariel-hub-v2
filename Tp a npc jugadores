@@ -1,7 +1,4 @@
--- ==================================================
--- ARIEL HUB + MIYAMURA HUB — COMBINADO Y CORREGIDO
--- ✅ Brillo máximo activado | ✅ Auto Gun Arreglado
--- ==================================================
+
 local Rayfield = loadstring(game:HttpGet'https://sirius.menu/rayfield')()
 local P = game:GetService'Players'
 local RS = game:GetService'RunService'
