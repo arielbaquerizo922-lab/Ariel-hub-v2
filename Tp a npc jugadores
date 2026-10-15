@@ -1,4 +1,3 @@
-
 local Rayfield = loadstring(game:HttpGet'https://sirius.menu/rayfield')()
 local P = game:GetService'Players'
 local RS = game:GetService'RunService'
@@ -17,7 +16,6 @@ local LocalPlayer = lp
 local Camera = cam
 local Mouse = m
 
--- ─── AJUSTE DE BRILLO MÁXIMO ───
 Lighting.ClockTime = 14
 Lighting.Brightness = 2.5
 Lighting.GlobalShadows = true
@@ -30,7 +28,6 @@ if Lighting:FindFirstChild("Atmosphere") then
     Lighting.Atmosphere.Haze = 0
 end
 
--- ─── VARIABLES ORIGINALES ───
 local SoruAim = false
 local soruR = 300
 local velP = 450
@@ -52,7 +49,6 @@ local AttackHeight = 40
 local InfiniteZoom = false
 local savedZoom = lp.CameraMaxZoomDistance
 
--- SISTEMA DE SEGUIMIENTO
 local followPlayerEnabled = false
 local followPlayerActive = false
 local followPlayerThread = nil
@@ -73,9 +69,6 @@ local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
 local RH = Net['RE/RegisterHit']
 local RA = Net['RE/RegisterAttack']
 
--- ═══════════════════════════════════════════════════
--- ✅ DRAGON GUN — VERSIÓN ARREGLADA DEL SEGUNDO ARCHIVO
--- ═══════════════════════════════════════════════════
 local ShootGunEvent = Net:WaitForChild("RE/ShootGunEvent", 5)
 local Validator2 = ReplicatedStorage:WaitForChild("Remotes", 5):WaitForChild("Validator2", 5)
 local getupval = debug.getupvalue or getupvalue
@@ -198,9 +191,6 @@ local function DGT()
     return closest
 end
 
--- ═══════════════════════════════════════════════════
--- MÓDULO: MOVIMIENTO
--- ═══════════════════════════════════════════════════
 local Movement = {}
 Movement.AirJumpConnection = nil
 Movement.WaterPlatform = nil
@@ -294,9 +284,7 @@ function Movement.ToggleWalkOnLava(enabled)
         end
     end
 end
--- ═══════════════════════════════════════════════════
--- MÓDULO: VISUALES / ESP
--- ═══════════════════════════════════════════════════
+
 local ESP = {}
 ESP.Objects = {}
 ESP.WorldFruits = {}
@@ -422,7 +410,7 @@ function ESP.ScanWorldFruits()
                     label.Font = Enum.Font.GothamBold
                     label.TextSize = 12
                     label.TextColor3 = Color3.fromRGB(255,80,80)
-                    label.Text = "🍎 "..item.Name
+                    label.Text = item.Name
                     label.Parent = bg
                     ESP.WorldFruits[item] = bg
                 end
@@ -449,7 +437,6 @@ function ESP.UpdateLoop()
     end)
 end
 
--- ─── FUNCIONES DE SEGUIMIENTO ───
 local function GetClosestNPC()
     local closest = nil
     local shortestDistance = math.huge
@@ -740,28 +727,23 @@ local function startV4()
     end)
 end
 
--- ─── BUCLE PRINCIPAL DE RENDER ───
 RS.RenderStepped:Connect(function(deltaTime)
-    -- INFINITE ZOOM
     if InfiniteZoom then
         lp.CameraMaxZoomDistance = math.huge
     else
         lp.CameraMaxZoomDistance = savedZoom
     end
     
-    -- NO CLIP
     if ncl and lp.Character then
         for _, p in next, lp.Character:GetDescendants() do
             if p:IsA'BasePart' then p.CanCollide = false end
         end
     end
     
-    -- WALK ON WATER
     if walkW and Workspace:FindFirstChild'Map' and Workspace.Map:FindFirstChild'WaterBase-Plane' then
         Workspace.Map['WaterBase-Plane'].Size = Vector3.new(1000, 112, 1000)
     end
     
-    -- MOVIMIENTO
     Movement.ApplySpeedBoost(deltaTime)
     if Movement.WaterPlatform then
         local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
@@ -777,7 +759,6 @@ RS.RenderStepped:Connect(function(deltaTime)
         end
     end
     
-    -- FAST ATTACK
     if FA then pcall(function()
         local c = lp.Character
         local my = c and c:FindFirstChild'HumanoidRootPart'
@@ -815,7 +796,6 @@ RS.RenderStepped:Connect(function(deltaTime)
         end
     end) end
     
-    -- ✅ AUTO GUN — ARREGLADO
     if DG then pcall(function()
         local c = lp.Character
         local tool = c and c:FindFirstChildOfClass'Tool'
@@ -834,7 +814,6 @@ RS.RenderStepped:Connect(function(deltaTime)
     end) end
 end)
 
--- DUNGEON BYPASS TP
 RS.Heartbeat:Connect(function()
     if not BypassTP then return end
     pcall(function()
@@ -863,7 +842,6 @@ RS.Heartbeat:Connect(function()
     end)
 end)
 
--- AIMBOT
 local mt = getrawmetatable(game)
 local oldIdx = mt.__index
 setreadonly(mt, false)
@@ -902,15 +880,11 @@ mt.__index = newcclosure(function(self, k)
 end)
 setreadonly(mt, true)
 
--- INICIAR BUCLE ESP
 ESP.UpdateLoop()
 
--- ═══════════════════════════════════════════════════
--- INTERFAZ DE USUARIO
--- ═══════════════════════════════════════════════════
 local W = Rayfield:CreateWindow({
-    Name = 'Ariel Hub ✅',
-    LoadingTitle = 'Ariel Hub — Actualizado',
+    Name = 'Ariel Hub',
+    LoadingTitle = 'Ariel Hub',
     ConfigurationSaving = {Enabled = true, FolderName = 'ArielHub', FileName = 'Config'},
     KeySystem = false
 })
@@ -920,10 +894,9 @@ local MoveTab = W:CreateTab('Movimiento', 4483362458)
 local VisualTab = W:CreateTab('Visuales & ESP', 4483362458)
 local MiscTab = W:CreateTab('Extra', 4483362458)
 
--- ═══ PESTAÑA PRINCIPAL ═══
 MainTab:CreateSection('Seguimiento')
 MainTab:CreateToggle({
-    Name = 'Mostrar Botón Seg Jugador',
+    Name = 'Mostrar Boton Seg Jugador',
     CurrentValue = false,
     Flag = 'FollowPlayer',
     Callback = function(v)
@@ -933,7 +906,7 @@ MainTab:CreateToggle({
     end
 })
 MainTab:CreateToggle({
-    Name = 'Mostrar Botón Seg NPC',
+    Name = 'Mostrar Boton Seg NPC',
     CurrentValue = false,
     Flag = 'FollowNPC',
     Callback = function(v)
@@ -997,7 +970,6 @@ MainTab:CreateToggle({
     Callback = function(s) InfiniteZoom = s end
 })
 
--- ═══ PESTAÑA COMBATE ═══
 CombatTab:CreateSection('Ataque')
 CombatTab:CreateToggle({
     Name = 'Fast Attack',
@@ -1013,7 +985,7 @@ CombatTab:CreateSlider({
     Flag = 'FAR',
     Callback = function(v) FAr = v end
 })
-CombatTab:CreateSection('🔫 Dragon Gun — ARREGLADO ✅')
+CombatTab:CreateSection('Dragon Gun')
 CombatTab:CreateToggle({
     Name = 'Auto Gun',
     CurrentValue = false,
@@ -1055,7 +1027,6 @@ CombatTab:CreateSlider({
     Callback = function(v) DGsp = v end
 })
 
--- ═══ PESTAÑA MOVIMIENTO ═══
 MoveTab:CreateSection('General')
 MoveTab:CreateToggle({
     Name = 'No Clip',
@@ -1115,8 +1086,7 @@ MoveTab:CreateSlider({
     Callback = function(v) Movement.SpeedValue = v end
 })
 
--- ═══ PESTAÑA VISUALES & ESP ═══
-VisualTab:CreateSection('Configuración General')
+VisualTab:CreateSection('Configuracion General')
 VisualTab:CreateToggle({
     Name = 'Activar ESP',
     CurrentValue = true,
@@ -1126,3 +1096,54 @@ VisualTab:CreateToggle({
 VisualTab:CreateToggle({
     Name = 'Modo Streamer',
     CurrentValue = false,
+    Flag = 'StreamerMode',
+    Callback = function(s) ESP.StreamerMode = s end
+})
+VisualTab:CreateSlider({
+    Name = 'Distancia Maxima',
+    Range = {500, 10000},
+    Increment = 100,
+    CurrentValue = 3500,
+    Flag = 'ESPMaxDist',
+    Callback = function(v) ESP.MaxDistance = v end
+})
+VisualTab:CreateSection('Objetos')
+VisualTab:CreateToggle({
+    Name = 'Frutas ESP',
+    CurrentValue = true,
+    Flag = 'FruitESP',
+    Callback = function(s) ESP.ShowFruitESP = s end
+})
+VisualTab:CreateToggle({
+    Name = 'Cofres ESP',
+    CurrentValue = true,
+    Flag = 'ChestESP',
+    Callback = function(s) ESP.ShowChestESP = s end
+})
+
+MiscTab:CreateSection('Auto Habilidades')
+MiscTab:CreateToggle({
+    Name = 'Auto V4',
+    CurrentValue = false,
+    Flag = 'AutoV4',
+    Callback = function(s)
+        autoV4 = s
+        if s then startV4() end
+    end
+})
+MiscTab:CreateToggle({
+    Name = 'Dungeon Bypass TP',
+    CurrentValue = false,
+    Flag = 'BypassTP',
+    Callback = function(s) BypassTP = s end
+})
+MiscTab:CreateSlider({
+    Name = 'TP Altura',
+    Range = {10, 100},
+    Increment = 5,
+    CurrentValue = 40,
+    Flag = 'AttackHeight',
+    Callback = function(v) AttackHeight = v end
+})
+
+Rayfield:LoadConfiguration()
