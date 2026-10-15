@@ -1,5 +1,6 @@
 -- ==================================================
--- ARIEL HUB + COKEBOYS MOVEMENT & ESP/VisualS
+-- ARIEL HUB + MIYAMURA HUB — COMBINADO Y CORREGIDO
+-- ✅ Brillo máximo activado | ✅ Auto Gun Arreglado
 -- ==================================================
 local Rayfield = loadstring(game:HttpGet'https://sirius.menu/rayfield')()
 local P = game:GetService'Players'
@@ -19,7 +20,20 @@ local LocalPlayer = lp
 local Camera = cam
 local Mouse = m
 
--- ─── VARIABLES ORIGINALES DE ARIEL HUB ───
+-- ─── AJUSTE DE BRILLO MÁXIMO ───
+Lighting.ClockTime = 14
+Lighting.Brightness = 2.5
+Lighting.GlobalShadows = true
+Lighting.Ambient = Color3.fromRGB(255,255,255)
+Lighting.OutdoorAmbient = Color3.fromRGB(255,255,255)
+Lighting.FogStart = 999999999
+Lighting.FogEnd = 999999999
+if Lighting:FindFirstChild("Atmosphere") then
+    Lighting.Atmosphere.Density = 0
+    Lighting.Atmosphere.Haze = 0
+end
+
+-- ─── VARIABLES ORIGINALES ───
 local SoruAim = false
 local soruR = 300
 local velP = 450
@@ -57,16 +71,138 @@ local CHANGE_INTERVAL = 0.1
 local followSpeed = 32
 local followSpeedMin = 10
 local followSpeedMax = 2000
-
 local V4Con = nil
-local Net = ReplicatedStorage.Modules.Net
+local Net = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
 local RH = Net['RE/RegisterHit']
 local RA = Net['RE/RegisterAttack']
-local SGE, V2, SF, upv = nil, nil, nil, debug.getupvalue or getupvalue
-local DV = {v26=12, v22=13, v25=14, v21=15, v23=16, v24=17, v27=18}
 
 -- ═══════════════════════════════════════════════════
--- MÓDULO: MOVIMIENTO (DEL SEGUNDO ARCHIVO)
+-- ✅ DRAGON GUN — VERSIÓN ARREGLADA DEL SEGUNDO ARCHIVO
+-- ═══════════════════════════════════════════════════
+local ShootGunEvent = Net:WaitForChild("RE/ShootGunEvent", 5)
+local Validator2 = ReplicatedStorage:WaitForChild("Remotes", 5):WaitForChild("Validator2", 5)
+local getupval = debug.getupvalue or getupvalue
+local setupval = debug.setupvalue or setupvalue
+local getupvals = debug.getupvalues or getupvalues
+local ShootFunction
+local V_Idx = { v26 = 12, v22 = 13, v25 = 14, v21 = 15, v23 = 16, v24 = 17, v27 = 18 }
+
+local function InitDragonGun()
+    local success, result = pcall(require, ReplicatedStorage:WaitForChild("Controllers"):WaitForChild("CombatController"))
+    if success and type(result) == "table" and result.Attack then
+        ShootFunction = getupval(result.Attack, 9)
+    end
+end
+
+local function GetNextValidator()
+    if not ShootFunction then InitDragonGun() end
+    if not ShootFunction then return 0, 0 end
+    local upvals = getupvals(ShootFunction)
+    if not upvals then return 0, 0 end
+    
+    if upvals[V_Idx.v21] ~= 727595 then
+        for i, v in pairs(upvals) do
+            if v == 727595 then
+                local offset = i - 15
+                V_Idx.v21 = i
+                V_Idx.v22 = 13 + offset
+                V_Idx.v23 = 16 + offset
+                V_Idx.v24 = 17 + offset
+                V_Idx.v26 = 12 + offset
+                V_Idx.v25 = 14 + offset
+                V_Idx.v27 = 18 + offset
+                break
+            end
+        end
+    end
+    
+    local v1 = getupval(ShootFunction, V_Idx.v21)
+    local v2 = getupval(ShootFunction, V_Idx.v22)
+    local v3 = getupval(ShootFunction, V_Idx.v23)
+    local v4 = getupval(ShootFunction, V_Idx.v24)
+    local v5 = getupval(ShootFunction, V_Idx.v25)
+    local v6 = getupval(ShootFunction, V_Idx.v26)
+    local v7 = getupval(ShootFunction, V_Idx.v27)
+    
+    if not (v1 and v2 and v3 and v4 and v5 and v6 and v7) then return 0, 0 end
+    
+    local v8 = v6 * v2
+    local v9 = (v5 * v2 + v6 * v1) % v3
+    v9 = (v9 * v3 + v8) % v4
+    v5 = math.floor(v9 / v3)
+    v6 = v9 - v5 * v3
+    v7 = v7 + 1
+    
+    setupval(ShootFunction, V_Idx.v25, v5)
+    setupval(ShootFunction, V_Idx.v26, v6)
+    setupval(ShootFunction, V_Idx.v27, v7)
+    return math.floor(v9 / v4 * 16777215), v7
+end
+
+local function GetEntityPart(entity)
+    return entity:FindFirstChild("HumanoidRootPart") 
+        or entity:FindFirstChild("Engine") 
+        or entity:FindFirstChild("Head") 
+        or entity:FindFirstChild("Base") 
+        or entity.PrimaryPart
+end
+
+local function DGT()
+    local char = lp.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+    
+    local closest, dist = nil, DGd
+    local myPos = root.Position
+    
+    if DGm then
+        local enemies = Workspace:FindFirstChild("Enemies")
+        if enemies then
+            for _, enemy in ipairs(enemies:GetChildren()) do
+                local hum = enemy:FindFirstChildOfClass("Humanoid")
+                local r = GetEntityPart(enemy)
+                if hum and hum.Health > 0 and r then
+                    local d = (r.Position - myPos).Magnitude
+                    if d < dist then dist = d; closest = r end
+                end
+            end
+        end
+    end
+    
+    if DGs then
+        local seaFolders = { Workspace:FindFirstChild("SeaBeasts"), Workspace:FindFirstChild("SeaEvents") }
+        for _, folder in ipairs(seaFolders) do
+            if folder then
+                for _, seaMob in ipairs(folder:GetChildren()) do
+                    local hum = seaMob:FindFirstChildOfClass("Humanoid")
+                    local r = GetEntityPart(seaMob)
+                    if r and (not hum or hum.Health > 0) then
+                        local d = (r.Position - myPos).Magnitude
+                        if d < dist then dist = d; closest = r end
+                    end
+                end
+            end
+        end
+    end
+    
+    if DGp then
+        for _, player in ipairs(P:GetPlayers()) do
+            if player ~= lp and player.Character then
+                local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                local r = player.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and r then
+                    local d = (r.Position - myPos).Magnitude
+                    if d < dist then dist = d; closest = r end
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- ═══════════════════════════════════════════════════
+-- MÓDULO: MOVIMIENTO
 -- ═══════════════════════════════════════════════════
 local Movement = {}
 Movement.AirJumpConnection = nil
@@ -81,7 +217,6 @@ Movement.WalkOnLava = false
 Movement.InfiniteAirJump = false
 Movement.HoldInfiniteAirJump = true
 Movement.NoClip = false
-
 function Movement.StartAirJumpLoop()
     if Movement.AirJumpConnection then return end
     Movement.AirJumpConnection = UIS.JumpRequest:Connect(function()
@@ -94,14 +229,12 @@ function Movement.StartAirJumpLoop()
         end
     end)
 end
-
 function Movement.StopAirJumpLoop()
     if Movement.AirJumpConnection then
         Movement.AirJumpConnection:Disconnect()
         Movement.AirJumpConnection = nil
     end
 end
-
 function Movement.ApplySpeedBoost(deltaTime)
     if not Movement.SpeedBoost then return end
     local char = LocalPlayer.Character
@@ -115,7 +248,6 @@ function Movement.ApplySpeedBoost(deltaTime)
         hrp.CFrame = hrp.CFrame + (moveDir * factor * 25 * dt)
     end
 end
-
 function Movement.ExecuteSuperJump()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -123,7 +255,6 @@ function Movement.ExecuteSuperJump()
     local power = Movement.SuperJumpPower
     hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, power, hrp.AssemblyLinearVelocity.Z)
 end
-
 function Movement.ToggleWalkOnWater(enabled)
     Movement.WalkOnWater = enabled
     if enabled then
@@ -145,7 +276,6 @@ function Movement.ToggleWalkOnWater(enabled)
         end
     end
 end
-
 function Movement.ToggleWalkOnLava(enabled)
     Movement.WalkOnLava = enabled
     if enabled then
@@ -167,9 +297,8 @@ function Movement.ToggleWalkOnLava(enabled)
         end
     end
 end
-
 -- ═══════════════════════════════════════════════════
--- MÓDULO: VISUALES / ESP (DEL SEGUNDO ARCHIVO)
+-- MÓDULO: VISUALES / ESP
 -- ═══════════════════════════════════════════════════
 local ESP = {}
 ESP.Objects = {}
@@ -186,7 +315,6 @@ ESP.MaxDistance = 3500
 ESP.StreamerMode = false
 ESP.ShowFruitESP = true
 ESP.ShowChestESP = true
-
 local Drawing = Drawing or {
     new = function()
         return {
@@ -195,7 +323,6 @@ local Drawing = Drawing or {
         }
     end
 }
-
 function ESP.GetBountyColor(bounty)
     bounty = tonumber(bounty) or 0
     if bounty >= 20000000 then return Color3.fromRGB(255, 60, 60)
@@ -205,7 +332,6 @@ function ESP.GetBountyColor(bounty)
     elseif bounty >= 1000000 then return Color3.fromRGB(80, 255, 120)
     else return Color3.fromRGB(240, 240, 240) end
 end
-
 function ESP.CreateBillboard(player)
     if not player or player == LocalPlayer then return nil end
     if ESP.Objects[player] then return ESP.Objects[player] end
@@ -259,7 +385,6 @@ function ESP.CreateBillboard(player)
     end)
     return entry
 end
-
 function ESP.UpdateBillboard(entry)
     if not entry or not entry.Player then return end
     local player = entry.Player
@@ -281,7 +406,6 @@ function ESP.UpdateBillboard(entry)
     entry.HealthBar.BackgroundColor3 = Color3.fromRGB(math.floor(255*(1-hpRatio)), math.floor(255*hpRatio), 60)
     entry.InfoLabel.Text = string.format("HP: %d/%d", math.floor(hum.Health), math.floor(hum.MaxHealth))
 end
-
 function ESP.ScanWorldFruits()
     if not ESP.ShowFruitESP then return end
     for _, item in ipairs(Workspace:GetChildren()) do
@@ -309,7 +433,6 @@ function ESP.ScanWorldFruits()
         end
     end
 end
-
 function ESP.UpdateLoop()
     task.spawn(function()
         while true do
@@ -329,95 +452,14 @@ function ESP.UpdateLoop()
     end)
 end
 
--- ─── FUNCIONES ORIGINALES DE ARIEL HUB ───
-local function DGI()
-    pcall(function()
-        local CC = ReplicatedStorage.Controllers.CombatController
-        SF = upv(require(CC).Attack, 9)
-    end)
-end
-local function NV()
-    if not SF then DGI() end
-    if not SF then return 0, 0 end
-    local uv = debug.getupvalues(SF) or {}
-    if uv[DV.v21] ~= 727595 then
-        for i, v in next, uv do
-            if v == 727595 then
-                local o = i - 15
-                DV.v21 = i; DV.v22 = 13+o; DV.v23 = 16+o
-                DV.v24 = 17+o; DV.v25 = 14+o; DV.v26 = 12+o; DV.v27 = 18+o
-                break
-            end
-        end
-    end
-    local v1 = upv(SF, DV.v21)
-    local v2 = upv(SF, DV.v22)
-    local v3 = upv(SF, DV.v23)
-    local v4 = upv(SF, DV.v24)
-    local v5 = upv(SF, DV.v25)
-    local v6 = upv(SF, DV.v26)
-    local v7 = upv(SF, DV.v27)
-    if not (v1 and v2 and v3 and v4 and v5 and v6 and v7) then return 0, 0 end
-    local v9 = ((v5*v2+v6*v1)%v3*v3+v6*v2)%v4
-    v5 = math.floor(v9/v3); v6 = v9-v5*v3; v7 = v7 + 1
-    debug.setupvalue(SF, DV.v25, v5)
-    debug.setupvalue(SF, DV.v26, v6)
-    debug.setupvalue(SF, DV.v27, v7)
-    return math.floor(v9/v4*16777215), v7
-end
-local function DGT()
-    local c = lp.Character
-    local r = c and c:FindFirstChild'HumanoidRootPart'
-    if not r then return end
-    local cl, d = nil, DGd
-    local rp = r.Position
-    if DGm then
-        local E = workspace:FindFirstChild'Enemies'
-        if E then
-            for _, e in next, E:GetChildren() do
-                local hr = e:FindFirstChild'HumanoidRootPart' or e.PrimaryPart
-                local h = e:FindFirstChild'Humanoid'
-                if hr and h and h.Health > 0 then
-                    local dx = (hr.Position - rp).Magnitude
-                    if dx < d then d = dx; cl = hr end
-                end
-            end
-        end
-    end
-    if DGp then
-        for _, pl in next, P:GetPlayers() do
-            if pl ~= lp and pl.Character then
-                local hr = pl.Character:FindFirstChild'HumanoidRootPart'
-                local h = pl.Character:FindFirstChild'Humanoid'
-                if hr and h and h.Health > 0 then
-                    local dx = (hr.Position - rp).Magnitude
-                    if dx < d then d = dx; cl = hr end
-                end
-            end
-        end
-    end
-    if DGs then
-        for _, f in next, {workspace:FindFirstChild'SeaBeasts', workspace:FindFirstChild'SeaEvents'} do
-            if f then
-                for _, m in next, f:GetChildren() do
-                    local hr = m:FindFirstChild'HumanoidRootPart' or m.PrimaryPart
-                    if hr then
-                        local dx = (hr.Position - rp).Magnitude
-                        if dx < d then d = dx; cl = hr end
-                    end
-                end
-            end
-        end
-    end
-    return cl
-end
+-- ─── FUNCIONES DE SEGUIMIENTO ───
 local function GetClosestNPC()
     local closest = nil
     local shortestDistance = math.huge
     local myChar = lp.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
     local myPos = myChar.HumanoidRootPart.Position
-    local enemies = workspace:FindFirstChild("Enemies")
+    local enemies = Workspace:FindFirstChild("Enemies")
     if enemies then
         for _, npc in pairs(enemies:GetChildren()) do
             local hum = npc:FindFirstChild("Humanoid")
@@ -623,6 +665,7 @@ local function DestroyFollowButtons()
     followPlayerTarget = nil
     followNPCTarget = nil
 end
+
 local bg = nil
 local function dBG() if bg then bg:Destroy(); bg = nil end end
 local function doB()
@@ -716,9 +759,9 @@ RS.RenderStepped:Connect(function(deltaTime)
         end
     end
     
-    -- WALK ON WATER ORIGINAL
-    if walkW and workspace:FindFirstChild'Map' and workspace.Map:FindFirstChild'WaterBase-Plane' then
-        workspace.Map['WaterBase-Plane'].Size = Vector3.new(1000, 112, 1000)
+    -- WALK ON WATER
+    if walkW and Workspace:FindFirstChild'Map' and Workspace.Map:FindFirstChild'WaterBase-Plane' then
+        Workspace.Map['WaterBase-Plane'].Size = Vector3.new(1000, 112, 1000)
     end
     
     -- MOVIMIENTO
@@ -752,7 +795,7 @@ RS.RenderStepped:Connect(function(deltaTime)
                 end
             end
         end
-        local E = workspace:FindFirstChild'Enemies'
+        local E = Workspace:FindFirstChild'Enemies'
         if E then
             for _, n in next, E:GetChildren() do
                 local hr = n:FindFirstChild'HumanoidRootPart'
@@ -775,7 +818,7 @@ RS.RenderStepped:Connect(function(deltaTime)
         end
     end) end
     
-    -- AUTO GUN / DRAGON GUN
+    -- ✅ AUTO GUN — ARREGLADO
     if DG then pcall(function()
         local c = lp.Character
         local tool = c and c:FindFirstChildOfClass'Tool'
@@ -783,11 +826,11 @@ RS.RenderStepped:Connect(function(deltaTime)
             local tar = DGT()
             if tar then
                 for i = 1, DGsp do
-                    local cd, cnt = NV()
-                    if cd ~= 0 and V2 then V2:FireServer(cd, cnt) end
+                    local cd, cnt = GetNextValidator()
+                    if cd ~= 0 then Validator2:FireServer(cd, cnt) end
                     tool:SetAttribute('LocalOverheat', 0)
                     tool:SetAttribute('LocalTotalShots', (tool:GetAttribute('LocalTotalShots') or 0) + 1)
-                    if SGE then SGE:FireServer(tar.Position, {tar}) end
+                    ShootGunEvent:FireServer(tar.Position, {tar})
                 end
             end
         end
@@ -802,7 +845,7 @@ RS.Heartbeat:Connect(function()
         local hrp = c and c:FindFirstChild'HumanoidRootPart'
         if not hrp then return end
         local closest, shortest = nil, math.huge
-        local folder = workspace:FindFirstChild'Enemies' or workspace
+        local folder = Workspace:FindFirstChild'Enemies' or Workspace
         for _, obj in ipairs(folder:GetChildren()) do
             if obj:IsA('Model') and obj ~= c then
                 local nameL = string.lower(obj.Name)
@@ -840,7 +883,7 @@ mt.__index = newcclosure(function(self, k)
                         if d < sD and d <= soruR then sD = d; cl = hr end
                     end
                 end
-                local E = workspace:FindFirstChild'Enemies'
+                local E = Workspace:FindFirstChild'Enemies'
                 if E then
                     for _, n in next, E:GetChildren() do
                         local hr = n:FindFirstChild'HumanoidRootPart'
@@ -866,11 +909,11 @@ setreadonly(mt, true)
 ESP.UpdateLoop()
 
 -- ═══════════════════════════════════════════════════
--- INTERFAZ DE USUARIO — PESTAÑAS NUEVAS AGREGADAS
+-- INTERFAZ DE USUARIO
 -- ═══════════════════════════════════════════════════
 local W = Rayfield:CreateWindow({
-    Name = 'Ariel Hub',
-    LoadingTitle = 'Ariel Hub',
+    Name = 'Ariel Hub ✅',
+    LoadingTitle = 'Ariel Hub — Actualizado',
     ConfigurationSaving = {Enabled = true, FolderName = 'ArielHub', FileName = 'Config'},
     KeySystem = false
 })
@@ -973,7 +1016,7 @@ CombatTab:CreateSlider({
     Flag = 'FAR',
     Callback = function(v) FAr = v end
 })
-CombatTab:CreateSection('Dragon Gun')
+CombatTab:CreateSection('🔫 Dragon Gun — ARREGLADO ✅')
 CombatTab:CreateToggle({
     Name = 'Auto Gun',
     CurrentValue = false,
@@ -1086,55 +1129,3 @@ VisualTab:CreateToggle({
 VisualTab:CreateToggle({
     Name = 'Modo Streamer',
     CurrentValue = false,
-    Flag = 'StreamerMode',
-    Callback = function(s) ESP.StreamerMode = s end
-})
-VisualTab:CreateSlider({
-    Name = 'Distancia Máxima',
-    Range = {500, 10000},
-    Increment = 100,
-    CurrentValue = 3500,
-    Flag = 'ESPMaxDist',
-    Callback = function(v) ESP.MaxDistance = v end
-})
-VisualTab:CreateSection('Objetos')
-VisualTab:CreateToggle({
-    Name = 'Frutas ESP',
-    CurrentValue = true,
-    Flag = 'FruitESP',
-    Callback = function(s) ESP.ShowFruitESP = s end
-})
-VisualTab:CreateToggle({
-    Name = 'Cofres ESP',
-    CurrentValue = true,
-    Flag = 'ChestESP',
-    Callback = function(s) ESP.ShowChestESP = s end
-})
-
--- ═══ PESTAÑA EXTRA ═══
-MiscTab:CreateSection('Auto Habilidades')
-MiscTab:CreateToggle({
-    Name = 'Auto V4',
-    CurrentValue = false,
-    Flag = 'AutoV4',
-    Callback = function(s)
-        autoV4 = s
-        if s then startV4() end
-    end
-})
-MiscTab:CreateToggle({
-    Name = 'Dungeon Bypass TP',
-    CurrentValue = false,
-    Flag = 'BypassTP',
-    Callback = function(s) BypassTP = s end
-})
-MiscTab:CreateSlider({
-    Name = 'TP Altura',
-    Range = {10, 100},
-    Increment = 5,
-    CurrentValue = 40,
-    Flag = 'AttackHeight',
-    Callback = function(v) AttackHeight = v end
-})
-
-Rayfield:LoadConfiguration()
