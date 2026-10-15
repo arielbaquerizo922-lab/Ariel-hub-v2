@@ -1,5 +1,5 @@
 -- ==================================================
--- ARIEL HUB + GRÁFICOS VZ
+-- ARIEL HUB + GRAFICOS VZ (CORREGIDO)
 -- ==================================================
 local Rayfield = loadstring(game:HttpGet'https://sirius.menu/rayfield')()
 local P = game:GetService'Players'
@@ -14,89 +14,74 @@ local pg = lp.PlayerGui
 local m = lp:GetMouse()
 local cam = Workspace.CurrentCamera
 local LocalPlayer = lp
-local Camera = cam
-local Mouse = m
 
--- VARIABLES GRÁFICAS
-local NoGfxMode = "Off"
-local LowGraphics = false
-local DisableShadows = false
-local NoFog = false
+-- VARIABLES GRAFICAS
 local originalQuality = settings().Rendering.QualityLevel
 local originalFogEnd = Lighting.FogEnd
-local noGfxModifiedObjects = {}
-local noGfxConnections = {}
+local originalFogStart = Lighting.FogStart
+local originalShadows = Lighting.GlobalShadows
+local noGfxActive = false
+local noGfxConn = nil
 
--- FUNCIONES GRÁFICAS
-local function processObject(inst)
-    local className = inst.ClassName
-    if className == "Beam" or className == "Trail" then
-        if not noGfxModifiedObjects[inst] then
-            noGfxModifiedObjects[inst] = { Texture = inst.Texture }
-            inst.Texture = "rbxassetid://84308155859778"
-        end
-    elseif className == "ParticleEmitter" then
-        if not noGfxModifiedObjects[inst] then
-            noGfxModifiedObjects[inst] = { Texture = inst.Texture, Enabled = inst.Enabled }
-            inst.Texture = ""
-            inst.Enabled = false
-        end
-    end
-end
-
-local function restoreNoGfx()
-    for obj, data in pairs(noGfxModifiedObjects) do
-        pcall(function()
-            if data.Texture ~= nil then obj.Texture = data.Texture end
-            if data.Enabled ~= nil then obj.Enabled = data.Enabled end
-        end)
-    end
-    noGfxModifiedObjects = {}
-    if noGfxConnections.DescendantAdded then
-        noGfxConnections.DescendantAdded:Disconnect()
-        noGfxConnections.DescendantAdded = nil
-    end
-end
-
-local function startNoGfxV1()
-    restoreNoGfx()
-    task.spawn(function()
-        local descendants = Workspace:GetDescendants()
-        for i = 1, #descendants do
-            local inst = descendants[i]
-            if not inst:IsA("Terrain") and not inst:IsA("Camera") then
-                processObject(inst)
-            end
-            if i % 100 == 0 then task.wait() end
-        end
-    end)
-    noGfxConnections.DescendantAdded = Workspace.DescendantAdded:Connect(processObject)
-end
-
-local function setNoGfxMode(mode)
-    NoGfxMode = mode
-    restoreNoGfx()
-    if mode == "V1" then startNoGfxV1() end
-end
-
+-- FUNCIONES GRAFICAS CORREGIDAS
 local function setLowGraphics(enabled)
-    LowGraphics = enabled
     pcall(function()
-        settings().Rendering.QualityLevel = enabled and Enum.QualityLevel.Level01 or originalQuality
+        if enabled then
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        else
+            settings().Rendering.QualityLevel = originalQuality
+        end
     end)
 end
 
 local function setDisableShadows(enabled)
-    DisableShadows = enabled
-    pcall(function() Lighting.GlobalShadows = not enabled end)
+    pcall(function()
+        Lighting.GlobalShadows = not enabled
+    end)
 end
 
 local function setNoFog(enabled)
-    NoFog = enabled
     pcall(function()
-        Lighting.FogEnd = enabled and 9e9 or originalFogEnd
-        Lighting.FogStart = enabled and 9e9 or 0
+        if enabled then
+            Lighting.FogEnd = math.huge
+            Lighting.FogStart = math.huge
+        else
+            Lighting.FogEnd = originalFogEnd
+            Lighting.FogStart = originalFogStart
+        end
     end)
+end
+
+local function applyNoGfxToInstance(inst)
+    pcall(function()
+        if inst:IsA("ParticleEmitter") then
+            inst.Enabled = false
+            inst.Texture = ""
+        elseif inst:IsA("Trail") or inst:IsA("Beam") then
+            inst.Texture = "rbxassetid://84308155859778"
+        end
+    end)
+end
+
+local function enableNoGfx()
+    if noGfxActive then return end
+    noGfxActive = true
+    for _, desc in ipairs(Workspace:GetDescendants()) do
+        task.spawn(applyNoGfxToInstance, desc)
+    end
+    noGfxConn = Workspace.DescendantAdded:Connect(function(desc)
+        if noGfxActive then
+            applyNoGfxToInstance(desc)
+        end
+    end)
+end
+
+local function disableNoGfx()
+    noGfxActive = false
+    if noGfxConn then
+        noGfxConn:Disconnect()
+        noGfxConn = nil
+    end
 end
 
 -- VARIABLES ORIGINALES
@@ -1145,8 +1130,11 @@ GraphicsTab:CreateDropdown({
     CurrentOption = 'Off',
     Flag = 'NoGfxMode',
     Callback = function(option)
-        NoGfxMode = option
-        if option == 'V1' then startNoGfxV1() else restoreNoGfx() end
+        if option == 'V1' then
+            enableNoGfx()
+        else
+            disableNoGfx()
+        end
     end
 })
 GraphicsTab:CreateToggle({
