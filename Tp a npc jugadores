@@ -678,7 +678,7 @@ CombatTab:CreateToggle({
 })
 CombatTab:CreateSlider({
     Name = 'Rango Ataque',
-    Range = {100, 10000},
+    Range = {100, 30000},
     Increment = 100,
     CurrentValue = 5000,
     Flag = 'FAR',
@@ -711,7 +711,7 @@ CombatTab:CreateToggle({
 })
 CombatTab:CreateSlider({
     Name = 'Distancia',
-    Range = {100, 1000},
+    Range = {100, 5000},
     Increment = 50,
     CurrentValue = 400,
     Flag = 'DGd',
@@ -719,7 +719,7 @@ CombatTab:CreateSlider({
 })
 CombatTab:CreateSlider({
     Name = 'Disparos/Frame',
-    Range = {1, 10},
+    Range = {1, 15},
     Increment = 1,
     CurrentValue = 3,
     Flag = 'DGsp',
