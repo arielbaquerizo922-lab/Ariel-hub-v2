@@ -1085,7 +1085,7 @@ CombatTab:CreateSlider({
 })
 CombatTab:CreateSlider({
     Name = 'Disparos/Frame',
-    Range = {1, 10},
+    Range = {1, 15},
     Increment = 1,
     CurrentValue = 3,
     Flag = 'DGsp',
@@ -1144,7 +1144,7 @@ MoveTab:CreateToggle({
 })
 MoveTab:CreateSlider({
     Name = 'Multiplicador Velocidad',
-    Range = {1.0, 5.0},
+    Range = {1.0, 15.0},
     Increment = 0.1,
     CurrentValue = 2.0,
     Flag = 'SpeedValue',
