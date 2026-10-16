@@ -1143,7 +1143,7 @@ MoveTab:CreateToggle({
 })
 MoveTab:CreateSlider({
     Name = 'Multiplicador Velocidad',
-    Range = {1.0, 15.0},
+    Range = {1.0, 5.0},
     Increment = 0.1,
     CurrentValue = 2.0,
     Flag = 'SpeedValue',
