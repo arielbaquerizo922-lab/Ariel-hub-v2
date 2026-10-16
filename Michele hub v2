@@ -9,6 +9,8 @@ local TweenService = game:GetService'TweenService'
 local HttpService = game:GetService'HttpService'
 local Workspace = game:GetService'Workspace'
 local Lighting = game:GetService'Lighting'
+local FullBrightEnabled = false
+local FullBrightOriginal = {}
 local CoreGui = game:GetService'CoreGui'
 local ReplicatedStorage = game:GetService'ReplicatedStorage'
 local lp = P.LocalPlayer
@@ -18,10 +20,6 @@ local cam = Workspace.CurrentCamera
 local LocalPlayer = lp
 local Camera = cam
 local Mouse = m
-
--- NUEVO: Variables para Día Completo
-local dayFogActive = false
-local dayFogConnection = nil
 
 local SoruAim = false
 local soruR = 300
@@ -43,6 +41,7 @@ local BypassTP = false
 local AttackHeight = 40
 local InfiniteZoom = false
 local savedZoom = lp.CameraMaxZoomDistance
+
 local followPlayerEnabled = false
 local followPlayerActive = false
 local followPlayerThread = nil
@@ -64,6 +63,7 @@ local RH = Net['RE/RegisterHit']
 local RA = Net['RE/RegisterAttack']
 local SGE, V2, SF, upv = nil, nil, nil, debug.getupvalue or getupvalue
 local DV = {v26=12, v22=13, v25=14, v21=15, v23=16, v24=17, v27=18}
+
 local Movement = {}
 Movement.AirJumpConnection = nil
 Movement.WaterPlatform = nil
@@ -78,56 +78,6 @@ Movement.InfiniteAirJump = false
 Movement.HoldInfiniteAirJump = true
 Movement.NoClip = false
 
--- ==================================================
--- NUEVO: FUNCIONES DE BRILLO / DÍA COMPLETO
--- ==================================================
-local function applyFullDayFog()
-    Lighting.ClockTime = 14
-    Lighting.Brightness = 2.2
-    Lighting.GlobalShadows = true
-    Lighting.Ambient = Color3.fromRGB(170,170,170)
-    Lighting.OutdoorAmbient = Color3.fromRGB(170,170,170)
-    Lighting.ColorShift_Bottom = Color3.fromRGB(0,0,0)
-    Lighting.ColorShift_Top = Color3.fromRGB(0,0,0)
-    Lighting.ExposureCompensation = 0.2
-    Lighting.GeographicLatitude = 41.733
-    Lighting.FogStart = 999999999
-    Lighting.FogEnd = 999999999
-    if Lighting:FindFirstChild("Atmosphere") then
-        local atm = Lighting.Atmosphere
-        atm.Density = 0
-        atm.Offset = 0
-        atm.Haze = 0
-        atm.Glare = 0
-    end
-    for _, v in pairs(Lighting:GetDescendants()) do
-        if v:IsA("Atmosphere") or v:IsA("BloomEffect") or v:IsA("BlurEffect") or
-           v:IsA("SunRaysEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("ColorCorrectionEffect") then
-            if v:IsA("Atmosphere") then
-                v.Density = 0
-                v.Haze = 0
-            else
-                v.Enabled = false
-            end
-        end
-    end
-end
-
-local function restoreLighting()
-    Lighting.ClockTime = 12
-    Lighting.Brightness = 1
-    Lighting.Ambient = Color3.fromRGB(127,127,127)
-    Lighting.OutdoorAmbient = Color3.fromRGB(127,127,127)
-    Lighting.ExposureCompensation = 0
-    Lighting.FogStart = 0
-    Lighting.FogEnd = 100000
-    if Lighting:FindFirstChild("Atmosphere") then
-        local atm = Lighting.Atmosphere
-        atm.Density = 0.3
-        atm.Haze = 2
-    end
-end
-
 function Movement.StartAirJumpLoop()
     if Movement.AirJumpConnection then return end
     Movement.AirJumpConnection = UIS.JumpRequest:Connect(function()
@@ -140,12 +90,14 @@ function Movement.StartAirJumpLoop()
         end
     end)
 end
+
 function Movement.StopAirJumpLoop()
     if Movement.AirJumpConnection then
         Movement.AirJumpConnection:Disconnect()
         Movement.AirJumpConnection = nil
     end
 end
+
 function Movement.ApplySpeedBoost(deltaTime)
     if not Movement.SpeedBoost then return end
     local char = LocalPlayer.Character
@@ -159,6 +111,7 @@ function Movement.ApplySpeedBoost(deltaTime)
         hrp.CFrame = hrp.CFrame + (moveDir * factor * 25 * dt)
     end
 end
+
 function Movement.ExecuteSuperJump()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -166,6 +119,7 @@ function Movement.ExecuteSuperJump()
     local power = Movement.SuperJumpPower
     hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, power, hrp.AssemblyLinearVelocity.Z)
 end
+
 function Movement.ToggleWalkOnWater(enabled)
     Movement.WalkOnWater = enabled
     if enabled then
@@ -187,6 +141,7 @@ function Movement.ToggleWalkOnWater(enabled)
         end
     end
 end
+
 function Movement.ToggleWalkOnLava(enabled)
     Movement.WalkOnLava = enabled
     if enabled then
@@ -208,6 +163,51 @@ function Movement.ToggleWalkOnLava(enabled)
         end
     end
 end
+
+-- FullBright
+local function ApplyFullBright()
+    FullBrightOriginal.Brightness = Lighting.Brightness
+    FullBrightOriginal.Ambient = Lighting.Ambient
+    FullBrightOriginal.OutdoorAmbient = Lighting.OutdoorAmbient
+    FullBrightOriginal.ExposureCompensation = Lighting.ExposureCompensation
+    FullBrightOriginal.ClockTime = Lighting.ClockTime
+    FullBrightOriginal.FogStart = Lighting.FogStart
+    FullBrightOriginal.FogEnd = Lighting.FogEnd
+    Lighting.Brightness = 2
+    Lighting.Ambient = Color3.fromRGB(178, 178, 178)
+    Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+    Lighting.ExposureCompensation = 0.5
+    Lighting.ClockTime = 14
+    Lighting.FogStart = 999999999
+    Lighting.FogEnd = 999999999
+    for _, v in pairs(Lighting:GetDescendants()) do
+        if v:IsA("Atmosphere") then
+            v.Density = 0; v.Haze = 0; v.Offset = 0; v.Glare = 0
+        elseif v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or
+               v:IsA("DepthOfFieldEffect") or v:IsA("ColorCorrectionEffect") then
+            v.Enabled = false
+        end
+    end
+end
+
+local function RestoreLighting()
+    Lighting.Brightness = FullBrightOriginal.Brightness or 1
+    Lighting.Ambient = FullBrightOriginal.Ambient or Color3.fromRGB(127, 127, 127)
+    Lighting.OutdoorAmbient = FullBrightOriginal.OutdoorAmbient or Color3.fromRGB(127, 127, 127)
+    Lighting.ExposureCompensation = FullBrightOriginal.ExposureCompensation or 0
+    Lighting.ClockTime = FullBrightOriginal.ClockTime or 12
+    Lighting.FogStart = FullBrightOriginal.FogStart or 0
+    Lighting.FogEnd = FullBrightOriginal.FogEnd or 100000
+    for _, v in pairs(Lighting:GetDescendants()) do
+        if v:IsA("Atmosphere") then
+            v.Density = 0.3; v.Haze = 2
+        elseif v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or
+               v:IsA("DepthOfFieldEffect") or v:IsA("ColorCorrectionEffect") then
+            v.Enabled = true
+        end
+    end
+end
+
 local ESP = {}
 ESP.Objects = {}
 ESP.WorldFruits = {}
@@ -223,6 +223,7 @@ ESP.MaxDistance = 3500
 ESP.StreamerMode = false
 ESP.ShowFruitESP = true
 ESP.ShowChestESP = true
+
 local Drawing = Drawing or {
     new = function()
         return {
@@ -231,6 +232,7 @@ local Drawing = Drawing or {
         }
     end
 }
+
 function ESP.GetBountyColor(bounty)
     bounty = tonumber(bounty) or 0
     if bounty >= 20000000 then return Color3.fromRGB(255, 60, 60)
@@ -240,12 +242,13 @@ function ESP.GetBountyColor(bounty)
     elseif bounty >= 1000000 then return Color3.fromRGB(80, 255, 120)
     else return Color3.fromRGB(240, 240, 240) end
 end
+
 function ESP.CreateBillboard(player)
     if not player or player == LocalPlayer then return nil end
     if ESP.Objects[player] then return ESP.Objects[player] end
     local Billboard = Instance.new("BillboardGui")
     Billboard.Name = "AH_ESP_" .. player.Name
-    Billboard.Size = UDim2.fromOffset(220, 75)
+    Billboard.Size = UDim2.fromOffset(280, 75)
     Billboard.StudsOffset = Vector3.new(0, 3.5, 0)
     Billboard.AlwaysOnTop = true
     Billboard.MaxDistance = ESP.MaxDistance
@@ -293,6 +296,7 @@ function ESP.CreateBillboard(player)
     end)
     return entry
 end
+
 function ESP.UpdateBillboard(entry)
     if not entry or not entry.Player then return end
     local player = entry.Player
@@ -308,12 +312,16 @@ function ESP.UpdateBillboard(entry)
     local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     local distance = myHRP and math.floor((hrp.Position - myHRP.Position).Magnitude) or 0
     local displayName = ESP.StreamerMode and ("Jugador " .. player.UserId%100) or player.DisplayName
-    entry.Header.Text = string.format("%s [%dm]", displayName, distance)
+    local userName = ESP.StreamerMode and ("???") or player.Name
+    -- Muestra DisplayName + @username si son diferentes, para identificar al jugador
+    local nameStr = (displayName ~= userName) and (displayName .. " (@" .. userName .. ")") or displayName
+    entry.Header.Text = string.format("%s [%dm]", nameStr, distance)
     local hpRatio = math.clamp(hum.Health/math.max(hum.MaxHealth,1), 0, 1)
     entry.HealthBar.Size = UDim2.new(hpRatio, 0, 1, 0)
     entry.HealthBar.BackgroundColor3 = Color3.fromRGB(math.floor(255*(1-hpRatio)), math.floor(255*hpRatio), 60)
     entry.InfoLabel.Text = string.format("HP: %d/%d", math.floor(hum.Health), math.floor(hum.MaxHealth))
 end
+
 function ESP.ScanWorldFruits()
     if not ESP.ShowFruitESP then return end
     for _, item in ipairs(Workspace:GetChildren()) do
@@ -341,6 +349,7 @@ function ESP.ScanWorldFruits()
         end
     end
 end
+
 function ESP.UpdateLoop()
     task.spawn(function()
         while true do
@@ -359,6 +368,7 @@ function ESP.UpdateLoop()
         end
     end)
 end
+
 local function DGI()
     pcall(function()
         local CC = ReplicatedStorage.Controllers.CombatController
@@ -368,6 +378,7 @@ local function DGI()
         SGE = SGE or module.Shoot or (module.Remotes and module.Remotes.Shoot) or nil
     end)
 end
+
 local function NV()
     if not SF then DGI() end
     if not SF then 
@@ -399,6 +410,7 @@ local function NV()
     debug.setupvalue(SF, DV.v27, v7)
     return math.floor(v9/v4*16777215), v7
 end
+
 local function DGT()
     local c = lp.Character
     local r = c and c:FindFirstChild'HumanoidRootPart'
@@ -445,6 +457,7 @@ local function DGT()
     end
     return cl
 end
+
 local function GetClosestNPC()
     local closest = nil
     local shortestDistance = math.huge
@@ -467,6 +480,7 @@ local function GetClosestNPC()
     end
     return closest
 end
+
 local function GetClosestPlayer()
     local closest = nil
     local shortestDistance = math.huge
@@ -487,6 +501,7 @@ local function GetClosestPlayer()
     end
     return closest
 end
+
 local function StopFollowingPlayer()
     followPlayerActive = false
     if followPlayerThread then coroutine.close(followPlayerThread) followPlayerThread = nil end
@@ -496,6 +511,7 @@ local function StopFollowingPlayer()
         followPlayerButton.TextColor3 = Color3.fromRGB(255,255,255)
     end
 end
+
 local function StopFollowingNPC()
     followNPCActive = false
     if followNPCThread then coroutine.close(followNPCThread) followNPCThread = nil end
@@ -505,6 +521,7 @@ local function StopFollowingNPC()
         followNPCButton.TextColor3 = Color3.fromRGB(255,255,255)
     end
 end
+
 local function StartFollowingPlayer()
     followPlayerTarget = GetClosestPlayer()
     if not followPlayerTarget then
@@ -549,6 +566,7 @@ local function StartFollowingPlayer()
     end)
     coroutine.resume(followPlayerThread)
 end
+
 local function StartFollowingNPC()
     followNPCTarget = GetClosestNPC()
     if not followNPCTarget then
@@ -593,6 +611,7 @@ local function StartFollowingNPC()
     end)
     coroutine.resume(followNPCThread)
 end
+
 local function CreateFollowButtons()
     if followPlayerButton or followNPCButton then return end
     local Gui = Instance.new("ScreenGui")
@@ -639,6 +658,7 @@ local function CreateFollowButtons()
         if followNPCActive then StartFollowingNPC() else StopFollowingNPC() end
     end)
 end
+
 local function DestroyFollowButtons()
     if followPlayerButton then
         local p = followPlayerButton.Parent
@@ -657,6 +677,7 @@ local function DestroyFollowButtons()
     followPlayerTarget = nil
     followNPCTarget = nil
 end
+
 local bg = nil
 local function dBG() if bg then bg:Destroy(); bg = nil end end
 local function doB()
@@ -679,6 +700,7 @@ local function doB()
         if a then a:Destroy() end
     end)
 end
+
 local function cBG()
     dBG()
     local g = Instance.new'ScreenGui'
@@ -712,6 +734,7 @@ local function cBG()
         b.BackgroundColor3 = Color3.fromRGB(210, 140, 255)
     end)
 end
+
 UIS.InputBegan:Connect(function(i, gp)
     if gp then return end
     if i.KeyCode == Enum.KeyCode.Z and boostE then doB() end
@@ -719,6 +742,7 @@ UIS.InputBegan:Connect(function(i, gp)
         Movement.ExecuteSuperJump()
     end
 end)
+
 local function startV4()
     if V4Con then V4Con:Disconnect() end
     V4Con = RS.Heartbeat:Connect(function()
@@ -733,10 +757,8 @@ local function startV4()
         end)
     end)
 end
+
 RS.RenderStepped:Connect(function(deltaTime)
-    -- NUEVO: Mantener día activo
-    if dayFogActive then applyFullDayFog() end
-    
     if InfiniteZoom then
         lp.CameraMaxZoomDistance = math.huge
     else
@@ -808,7 +830,13 @@ RS.RenderStepped:Connect(function(deltaTime)
     if DG then pcall(function()
         local c = lp.Character
         local tool = c and c:FindFirstChildOfClass'Tool'
-        if tool and tool.ToolTip == 'Gun' then
+        if not tool then
+            -- También buscar en Backpack si no está equipada aún
+            tool = lp.Backpack and lp.Backpack:FindFirstChildOfClass'Tool'
+        end
+        local isGun = tool and (tool.ToolTip == 'Gun' or tool.Name:lower():find('gun') or tool.Name:lower():find('pistol') or tool.Name:lower():find('rifle'))
+        if isGun and c:FindFirstChildOfClass'Tool' then -- solo disparar si ya está equipada en el character
+            tool = c:FindFirstChildOfClass'Tool'
             local tar = DGT()
             if tar then
                 local cd, cnt = NV()
@@ -830,6 +858,7 @@ RS.RenderStepped:Connect(function(deltaTime)
         end
     end) end
 end)
+
 RS.Heartbeat:Connect(function()
     if not BypassTP then return end
     pcall(function()
@@ -857,6 +886,7 @@ RS.Heartbeat:Connect(function()
         end
     end)
 end)
+
 local mt = getrawmetatable(game)
 local oldIdx = mt.__index
 setreadonly(mt, false)
@@ -894,7 +924,9 @@ mt.__index = newcclosure(function(self, k)
     return oldIdx(self, k)
 end)
 setreadonly(mt, true)
+
 ESP.UpdateLoop()
+
 local W = Rayfield:CreateWindow({
     Name = 'Ariel Hub',
     LoadingTitle = 'Ariel Hub',
@@ -1099,6 +1131,16 @@ MoveTab:CreateSlider({
     Callback = function(v) Movement.SpeedValue = v end
 })
 
+VisualTab:CreateSection('Iluminación')
+VisualTab:CreateToggle({
+    Name = 'Full Brightness',
+    CurrentValue = false,
+    Flag = 'FullBright',
+    Callback = function(s)
+        FullBrightEnabled = s
+        if s then ApplyFullBright() else RestoreLighting() end
+    end
+})
 VisualTab:CreateSection('Configuración General')
 VisualTab:CreateToggle({
     Name = 'Activar ESP',
@@ -1125,4 +1167,38 @@ VisualTab:CreateToggle({
     Name = 'Frutas ESP',
     CurrentValue = true,
     Flag = 'FruitESP',
-    Callback = function(s) ESP.ShowFruit
+    Callback = function(s) ESP.ShowFruitESP = s end
+})
+VisualTab:CreateToggle({
+    Name = 'Cofres ESP',
+    CurrentValue = true,
+    Flag = 'ChestESP',
+    Callback = function(s) ESP.ShowChestESP = s end
+})
+
+MiscTab:CreateSection('Auto Habilidades')
+MiscTab:CreateToggle({
+    Name = 'Auto V4',
+    CurrentValue = false,
+    Flag = 'AutoV4',
+    Callback = function(s)
+        autoV4 = s
+        if s then startV4() end
+    end
+})
+MiscTab:CreateToggle({
+    Name = 'Dungeon Bypass TP',
+    CurrentValue = false,
+    Flag = 'BypassTP',
+    Callback = function(s) BypassTP = s end
+})
+MiscTab:CreateSlider({
+    Name = 'TP Altura',
+    Range = {10, 100},
+    Increment = 5,
+    CurrentValue = 40,
+    Flag = 'AttackHeight',
+    Callback = function(v) AttackHeight = v end
+})
+
+Rayfield:LoadConfiguration()
