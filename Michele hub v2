@@ -1005,7 +1005,7 @@ MainTab:CreateToggle({
 })
 MainTab:CreateSlider({
     Name = 'Rango Aimbot',
-    Range = {50, 500},
+    Range = {50, 1000},
     Increment = 10,
     CurrentValue = 300,
     Flag = 'AimRange',
@@ -1076,7 +1076,7 @@ CombatTab:CreateToggle({
 })
 CombatTab:CreateSlider({
     Name = 'Distancia',
-    Range = {100, 1000},
+    Range = {100, ,3000},
     Increment = 50,
     CurrentValue = 400,
     Flag = 'DGd',
@@ -1084,7 +1084,7 @@ CombatTab:CreateSlider({
 })
 CombatTab:CreateSlider({
     Name = 'Disparos/Frame',
-    Range = {1, 10},
+    Range = {1, 15},
     Increment = 1,
     CurrentValue = 3,
     Flag = 'DGsp',
@@ -1128,7 +1128,7 @@ MoveTab:CreateToggle({
 })
 MoveTab:CreateSlider({
     Name = 'Fuerza Super Salto',
-    Range = {50, 300},
+    Range = {50, 500},
     Increment = 5,
     CurrentValue = 140,
     Flag = 'SuperJumpPower',
@@ -1143,7 +1143,7 @@ MoveTab:CreateToggle({
 })
 MoveTab:CreateSlider({
     Name = 'Multiplicador Velocidad',
-    Range = {1.0, 5.0},
+    Range = {1.0, 15.0},
     Increment = 0.1,
     CurrentValue = 2.0,
     Flag = 'SpeedValue',
