@@ -61,7 +61,15 @@ local V4Con = nil
 local Net = ReplicatedStorage.Modules.Net
 local RH = Net['RE/RegisterHit']
 local RA = Net['RE/RegisterAttack']
-local SGE, V2, SF, upv = nil, nil, nil, debug.getupvalue or getupvalue
+local upv = debug.getupvalue or getupvalue
+local setupv = debug.setupvalue or setupvalue
+local getupvs = debug.getupvalues or getupvalues
+-- Dragon Gun remotes (misma estructura que el juego usa internamente)
+local ShootGunEvent = pcall(function() return Net:WaitForChild("RE/ShootGunEvent", 5) end) and Net:FindFirstChild("RE/ShootGunEvent")
+local Validator2 = pcall(function() return ReplicatedStorage:WaitForChild("Remotes", 5) end) and (ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Validator2"))
+local SGE = ShootGunEvent  -- alias para compatibilidad
+local V2  = Validator2
+local SF  = nil
 local DV = {v26=12, v22=13, v25=14, v21=15, v23=16, v24=17, v27=18}
 
 local Movement = {}
@@ -371,11 +379,26 @@ end
 
 local function DGI()
     pcall(function()
-        local CC = ReplicatedStorage.Controllers.CombatController
-        local module = require(CC)
-        SF = upv(module.Attack, 9)
-        V2 = V2 or upv(module.Attack, 2) or (module.Remotes and module.Remotes.Fire) or nil
-        SGE = SGE or module.Shoot or (module.Remotes and module.Remotes.Shoot) or nil
+        -- Obtener ShootGunEvent y Validator2 si aún no están disponibles
+        if not ShootGunEvent then
+            local netFolder = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+            if netFolder then
+                ShootGunEvent = netFolder:FindFirstChild("RE/ShootGunEvent")
+                SGE = ShootGunEvent
+            end
+        end
+        if not Validator2 then
+            local rem = ReplicatedStorage:FindFirstChild("Remotes")
+            if rem then
+                Validator2 = rem:FindFirstChild("Validator2")
+                V2 = Validator2
+            end
+        end
+        -- Obtener ShootFunction para el validador de código
+        local success, module = pcall(require, ReplicatedStorage:WaitForChild("Controllers", 5):WaitForChild("CombatController", 5))
+        if success and type(module) == "table" and module.Attack then
+            SF = upv(module.Attack, 9)
+        end
     end)
 end
 
@@ -384,9 +407,9 @@ local function NV()
     if not SF then 
         return 0, 0 
     end
-    local uv = debug.getupvalues(SF) or {}
+    local uv = getupvs(SF) or {}
     if uv[DV.v21] ~= 727595 then
-        for i, v in next, uv do
+        for i, v in pairs(uv) do
             if v == 727595 then
                 local o = i - 15
                 DV.v21 = i; DV.v22 = 13+o; DV.v23 = 16+o
@@ -403,12 +426,17 @@ local function NV()
     local v6 = upv(SF, DV.v26)
     local v7 = upv(SF, DV.v27)
     if not (v1 and v2 and v3 and v4 and v5 and v6 and v7) then return 0, 0 end
-    local v9 = ((v5*v2+v6*v1)%v3*v3+v6*v2)%v4
-    v5 = math.floor(v9/v3); v6 = v9-v5*v3; v7 = v7 + 1
-    debug.setupvalue(SF, DV.v25, v5)
-    debug.setupvalue(SF, DV.v26, v6)
-    debug.setupvalue(SF, DV.v27, v7)
-    return math.floor(v9/v4*16777215), v7
+    -- Fórmula correcta (verificada contra el juego)
+    local v8 = v6 * v2
+    local v9 = (v5 * v2 + v6 * v1) % v3
+    v9 = (v9 * v3 + v8) % v4
+    v5 = math.floor(v9 / v3)
+    v6 = v9 - v5 * v3
+    v7 = v7 + 1
+    setupv(SF, DV.v25, v5)
+    setupv(SF, DV.v26, v6)
+    setupv(SF, DV.v27, v7)
+    return math.floor(v9 / v4 * 16777215), v7
 end
 
 local function DGT()
@@ -830,30 +858,21 @@ RS.RenderStepped:Connect(function(deltaTime)
     if DG then pcall(function()
         local c = lp.Character
         local tool = c and c:FindFirstChildOfClass'Tool'
-        if not tool then
-            -- También buscar en Backpack si no está equipada aún
-            tool = lp.Backpack and lp.Backpack:FindFirstChildOfClass'Tool'
-        end
-        local isGun = tool and (tool.ToolTip == 'Gun' or tool.Name:lower():find('gun') or tool.Name:lower():find('pistol') or tool.Name:lower():find('rifle'))
-        if isGun and c:FindFirstChildOfClass'Tool' then -- solo disparar si ya está equipada en el character
-            tool = c:FindFirstChildOfClass'Tool'
+        if tool and tool.ToolTip == 'Gun' then
+            -- Inicializar remotes si aún no están listos
+            if not SGE or not V2 or not SF then DGI() end
             local tar = DGT()
             if tar then
-                local cd, cnt = NV()
-                if cd ~= 0 then
-                    if V2 then V2:FireServer(cd, cnt) end
-                    if SGE then SGE:FireServer(tar.Position, {tar}) end
-                end
-                for i = 2, DGsp do
-                    task.wait()
-                    cd, cnt = NV()
+                for i = 1, DGsp do
+                    local cd, cnt = NV()
                     if cd ~= 0 then
+                        -- Reset overheat ANTES de disparar (orden correcto del juego)
+                        tool:SetAttribute('LocalOverheat', 0)
+                        tool:SetAttribute('LocalTotalShots', (tool:GetAttribute('LocalTotalShots') or 0) + 1)
                         if V2 then V2:FireServer(cd, cnt) end
                         if SGE then SGE:FireServer(tar.Position, {tar}) end
                     end
                 end
-                tool:SetAttribute('LocalOverheat', 0)
-                tool:SetAttribute('LocalTotalShots', (tool:GetAttribute('LocalTotalShots') or 0) + DGsp)
             end
         end
     end) end
