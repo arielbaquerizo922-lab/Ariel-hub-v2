@@ -1,5 +1,5 @@
 -- ==================================================
--- ARIEL HUB + COKEBOYS + MIYAMURA BRILLO INTEGRADO
+-- ARIEL HUB + COKEBOYS MOVEMENT & ESP/VisualS
 -- ==================================================
 local Rayfield = loadstring(game:HttpGet'https://sirius.menu/rayfield')()
 local P = game:GetService'Players'
@@ -19,7 +19,7 @@ local LocalPlayer = lp
 local Camera = cam
 local Mouse = m
 
--- ─── VARIABLES ORIGINALES ───
+-- ─── VARIABLES ORIGINALES DE ARIEL HUB ───
 local SoruAim = false
 local soruR = 300
 local velP = 450
@@ -41,7 +41,7 @@ local AttackHeight = 40
 local InfiniteZoom = false
 local savedZoom = lp.CameraMaxZoomDistance
 
--- SEGUIMIENTO
+-- SISTEMA DE SEGUIMIENTO
 local followPlayerEnabled = false
 local followPlayerActive = false
 local followPlayerThread = nil
@@ -58,62 +58,6 @@ local followSpeed = 32
 local followSpeedMin = 10
 local followSpeedMax = 2000
 
--- ╕␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣␣
--- ✨ SISTEMA DE BRILLO COMPLETO (DE MIYAMURA HUB)
--- ╘══════════════════════════════════════════════════════════════
-local dayFogActive = false
-local dayFogConnection = nil
-
-local function applyFullDayFog()
-    Lighting.ClockTime = 14
-    Lighting.Brightness = 2.2
-    Lighting.GlobalShadows = true
-    Lighting.Ambient = Color3.fromRGB(170,170,170)
-    Lighting.OutdoorAmbient = Color3.fromRGB(170,170,170)
-    Lighting.ColorShift_Bottom = Color3.fromRGB(0,0,0)
-    Lighting.ColorShift_Top = Color3.fromRGB(0,0,0)
-    Lighting.ExposureCompensation = 0.2
-    Lighting.GeographicLatitude = 41.733
-    Lighting.FogStart = 999999999
-    Lighting.FogEnd = 999999999
-    if Lighting:FindFirstChild("Atmosphere") then
-        local atm = Lighting.Atmosphere
-        atm.Density = 0
-        atm.Offset = 0
-        atm.Haze = 0
-        atm.Glare = 0
-    end
-    for _, v in pairs(Lighting:GetDescendants()) do
-        if v:IsA("Atmosphere") or v:IsA("BloomEffect") or v:IsA("BlurEffect") or
-           v:IsA("SunRaysEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("ColorCorrectionEffect") then
-            if v:IsA("Atmosphere") then
-                v.Density = 0
-                v.Haze = 0
-            else
-                v.Enabled = false
-            end
-        end
-    end
-end
-
-local function restoreLighting()
-    Lighting.ClockTime = 12
-    Lighting.Brightness = 1
-    Lighting.Ambient = Color3.fromRGB(127,127,127)
-    Lighting.OutdoorAmbient = Color3.fromRGB(127,127,127)
-    Lighting.ExposureCompensation = 0
-    Lighting.FogStart = 0
-    Lighting.FogEnd = 100000
-    if Lighting:FindFirstChild("Atmosphere") then
-        local atm = Lighting.Atmosphere
-        atm.Density = 0.3
-        atm.Haze = 2
-    end
-end
-
--- ═══════════════════════════════════════════════════
--- RESTO DE MÓDULOS ORIGINALES
--- ═══════════════════════════════════════════════════
 local V4Con = nil
 local Net = ReplicatedStorage.Modules.Net
 local RH = Net['RE/RegisterHit']
@@ -121,7 +65,9 @@ local RA = Net['RE/RegisterAttack']
 local SGE, V2, SF, upv = nil, nil, nil, debug.getupvalue or getupvalue
 local DV = {v26=12, v22=13, v25=14, v21=15, v23=16, v24=17, v27=18}
 
--- MÓDULO MOVIMIENTO
+-- ═══════════════════════════════════════════════════
+-- MÓDULO: MOVIMIENTO (DEL SEGUNDO ARCHIVO)
+-- ═══════════════════════════════════════════════════
 local Movement = {}
 Movement.AirJumpConnection = nil
 Movement.WaterPlatform = nil
@@ -142,16 +88,20 @@ function Movement.StartAirJumpLoop()
         if Movement.InfiniteAirJump or Movement.HoldInfiniteAirJump then
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+            if hum then
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
         end
     end)
 end
+
 function Movement.StopAirJumpLoop()
     if Movement.AirJumpConnection then
         Movement.AirJumpConnection:Disconnect()
         Movement.AirJumpConnection = nil
     end
 end
+
 function Movement.ApplySpeedBoost(deltaTime)
     if not Movement.SpeedBoost then return end
     local char = LocalPlayer.Character
@@ -165,6 +115,7 @@ function Movement.ApplySpeedBoost(deltaTime)
         hrp.CFrame = hrp.CFrame + (moveDir * factor * 25 * dt)
     end
 end
+
 function Movement.ExecuteSuperJump()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -172,6 +123,7 @@ function Movement.ExecuteSuperJump()
     local power = Movement.SuperJumpPower
     hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, power, hrp.AssemblyLinearVelocity.Z)
 end
+
 function Movement.ToggleWalkOnWater(enabled)
     Movement.WalkOnWater = enabled
     if enabled then
@@ -193,6 +145,7 @@ function Movement.ToggleWalkOnWater(enabled)
         end
     end
 end
+
 function Movement.ToggleWalkOnLava(enabled)
     Movement.WalkOnLava = enabled
     if enabled then
@@ -215,7 +168,9 @@ function Movement.ToggleWalkOnLava(enabled)
     end
 end
 
--- MÓDULO ESP
+-- ═══════════════════════════════════════════════════
+-- MÓDULO: VISUALES / ESP (DEL SEGUNDO ARCHIVO)
+-- ═══════════════════════════════════════════════════
 local ESP = {}
 ESP.Objects = {}
 ESP.WorldFruits = {}
@@ -232,6 +187,15 @@ ESP.StreamerMode = false
 ESP.ShowFruitESP = true
 ESP.ShowChestESP = true
 
+local Drawing = Drawing or {
+    new = function()
+        return {
+            Visible = false, Transparency = 1, Color = Color3.fromRGB(255,255,255),
+            Thickness = 1, Radius = 10, Remove = function() end, Destroy = function() end
+        }
+    end
+}
+
 function ESP.GetBountyColor(bounty)
     bounty = tonumber(bounty) or 0
     if bounty >= 20000000 then return Color3.fromRGB(255, 60, 60)
@@ -241,6 +205,7 @@ function ESP.GetBountyColor(bounty)
     elseif bounty >= 1000000 then return Color3.fromRGB(80, 255, 120)
     else return Color3.fromRGB(240, 240, 240) end
 end
+
 function ESP.CreateBillboard(player)
     if not player or player == LocalPlayer then return nil end
     if ESP.Objects[player] then return ESP.Objects[player] end
@@ -294,6 +259,7 @@ function ESP.CreateBillboard(player)
     end)
     return entry
 end
+
 function ESP.UpdateBillboard(entry)
     if not entry or not entry.Player then return end
     local player = entry.Player
@@ -315,6 +281,7 @@ function ESP.UpdateBillboard(entry)
     entry.HealthBar.BackgroundColor3 = Color3.fromRGB(math.floor(255*(1-hpRatio)), math.floor(255*hpRatio), 60)
     entry.InfoLabel.Text = string.format("HP: %d/%d", math.floor(hum.Health), math.floor(hum.MaxHealth))
 end
+
 function ESP.ScanWorldFruits()
     if not ESP.ShowFruitESP then return end
     for _, item in ipairs(Workspace:GetChildren()) do
@@ -342,6 +309,7 @@ function ESP.ScanWorldFruits()
         end
     end
 end
+
 function ESP.UpdateLoop()
     task.spawn(function()
         while true do
@@ -361,7 +329,7 @@ function ESP.UpdateLoop()
     end)
 end
 
--- FUNCIONES ORIGINALES
+-- ─── FUNCIONES ORIGINALES DE ARIEL HUB ───
 local function DGI()
     pcall(function()
         local CC = ReplicatedStorage.Controllers.CombatController
@@ -646,7 +614,6 @@ local function DestroyFollowButtons()
     end
     if followNPCButton then
         followNPCButton:Destroy()
-        if followNPCButton.Parent then followNPCButton.Parent:Destroy() end
         followNPCButton = nil
     end
     if followPlayerThread then coroutine.close(followPlayerThread) followPlayerThread = nil end
@@ -656,7 +623,6 @@ local function DestroyFollowButtons()
     followPlayerTarget = nil
     followNPCTarget = nil
 end
-
 local bg = nil
 local function dBG() if bg then bg:Destroy(); bg = nil end end
 local function doB()
@@ -734,15 +700,28 @@ local function startV4()
     end)
 end
 
--- BUCLES PRINCIPALES
+-- ─── BUCLE PRINCIPAL DE RENDER ───
 RS.RenderStepped:Connect(function(deltaTime)
-    if InfiniteZoom then lp.CameraMaxZoomDistance = math.huge else lp.CameraMaxZoomDistance = savedZoom end
-    if ncl and lp.Character then
-        for _, p in next, lp.Character:GetDescendants() do if p:IsA'BasePart' then p.CanCollide = false end end
+    -- INFINITE ZOOM
+    if InfiniteZoom then
+        lp.CameraMaxZoomDistance = math.huge
+    else
+        lp.CameraMaxZoomDistance = savedZoom
     end
+    
+    -- NO CLIP
+    if ncl and lp.Character then
+        for _, p in next, lp.Character:GetDescendants() do
+            if p:IsA'BasePart' then p.CanCollide = false end
+        end
+    end
+    
+    -- WALK ON WATER ORIGINAL
     if walkW and workspace:FindFirstChild'Map' and workspace.Map:FindFirstChild'WaterBase-Plane' then
         workspace.Map['WaterBase-Plane'].Size = Vector3.new(1000, 112, 1000)
     end
+    
+    -- MOVIMIENTO
     Movement.ApplySpeedBoost(deltaTime)
     if Movement.WaterPlatform then
         local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
@@ -753,8 +732,12 @@ RS.RenderStepped:Connect(function(deltaTime)
         if hrp then Movement.LavaPlatform.Position = Vector3.new(hrp.Position.X, 9.5, hrp.Position.Z) end
     end
     if Movement.NoClip and lp.Character then
-        for _, p in next, lp.Character:GetDescendants() do if p:IsA'BasePart' then p.CanCollide = false end end
+        for _, p in next, lp.Character:GetDescendants() do
+            if p:IsA'BasePart' then p.CanCollide = false end
+        end
     end
+    
+    -- FAST ATTACK
     if FA then pcall(function()
         local c = lp.Character
         local my = c and c:FindFirstChild'HumanoidRootPart'
@@ -791,6 +774,8 @@ RS.RenderStepped:Connect(function(deltaTime)
             end
         end
     end) end
+    
+    -- AUTO GUN / DRAGON GUN
     if DG then pcall(function()
         local c = lp.Character
         local tool = c and c:FindFirstChildOfClass'Tool'
@@ -809,6 +794,7 @@ RS.RenderStepped:Connect(function(deltaTime)
     end) end
 end)
 
+-- DUNGEON BYPASS TP
 RS.Heartbeat:Connect(function()
     if not BypassTP then return end
     pcall(function()
@@ -876,15 +862,15 @@ mt.__index = newcclosure(function(self, k)
 end)
 setreadonly(mt, true)
 
--- INICIAR
+-- INICIAR BUCLE ESP
 ESP.UpdateLoop()
 
 -- ═══════════════════════════════════════════════════
--- INTERFAZ COMPLETA CON PESTAÑA DE BRILLO
+-- INTERFAZ DE USUARIO — PESTAÑAS NUEVAS AGREGADAS
 -- ═══════════════════════════════════════════════════
 local W = Rayfield:CreateWindow({
     Name = 'Ariel Hub',
-    LoadingTitle = 'Ariel Hub + Brillo',
+    LoadingTitle = 'Ariel Hub',
     ConfigurationSaving = {Enabled = true, FolderName = 'ArielHub', FileName = 'Config'},
     KeySystem = false
 })
@@ -892,33 +878,10 @@ local MainTab = W:CreateTab('Principal', 4483362458)
 local CombatTab = W:CreateTab('Combate', 4483362458)
 local MoveTab = W:CreateTab('Movimiento', 4483362458)
 local VisualTab = W:CreateTab('Visuales & ESP', 4483362458)
-local BrightnessTab = W:CreateTab('☀️ Brillo', 4483362458)
 local MiscTab = W:CreateTab('Extra', 4483362458)
 
--- ═══ PESTAÑA BRILLO ☀️ ═══
-BrightnessTab:CreateSection('Iluminación del Juego')
-BrightnessTab:CreateToggle({
-    Name = 'Día Completo + Sin Niebla',
-    CurrentValue = false,
-    Flag = 'DayFog',
-    Callback = function(Value)
-        dayFogActive = Value
-        if Value then
-            applyFullDayFog()
-            if not dayFogConnection then
-                dayFogConnection = runService.RenderStepped:Connect(applyFullDayFog)
-            end
-            Rayfield:Notify({Title = "☀️ Brillo Activado", Content = "Día completo activado", Duration = 3})
-        else
-            if dayFogConnection then dayFogConnection:Disconnect(); dayFogConnection = nil end
-            restoreLighting()
-            Rayfield:Notify({Title = "🌙 Brillo Desactivado", Content = "Iluminación restaurada", Duration = 3})
-        end
-    end,
-})
-
 -- ═══ PESTAÑA PRINCIPAL ═══
-MainTab:CreateSection('Seguimiento TP')
+MainTab:CreateSection('Seguimiento')
 MainTab:CreateToggle({
     Name = 'Mostrar Botón Seg Jugador',
     CurrentValue = false,
@@ -1072,4 +1035,106 @@ MoveTab:CreateToggle({
     Flag = 'WalkLavaMov',
     Callback = function(s) Movement.ToggleWalkOnLava(s) end
 })
-MoveTab:
+MoveTab:CreateSection('Salto')
+MoveTab:CreateToggle({
+    Name = 'Salto Infinito',
+    CurrentValue = false,
+    Flag = 'InfiniteAirJump',
+    Callback = function(s)
+        Movement.InfiniteAirJump = s
+        if s then Movement.StartAirJumpLoop() else Movement.StopAirJumpLoop() end
+    end
+})
+MoveTab:CreateToggle({
+    Name = 'Super Salto',
+    CurrentValue = false,
+    Flag = 'SuperJumpMov',
+    Callback = function(s) Movement.SuperJump = s end
+})
+MoveTab:CreateSlider({
+    Name = 'Fuerza Super Salto',
+    Range = {50, 300},
+    Increment = 5,
+    CurrentValue = 140,
+    Flag = 'SuperJumpPower',
+    Callback = function(v) Movement.SuperJumpPower = v end
+})
+MoveTab:CreateSection('Velocidad')
+MoveTab:CreateToggle({
+    Name = 'Boost de Velocidad',
+    CurrentValue = false,
+    Flag = 'SpeedBoost',
+    Callback = function(s) Movement.SpeedBoost = s end
+})
+MoveTab:CreateSlider({
+    Name = 'Multiplicador Velocidad',
+    Range = {1.0, 5.0},
+    Increment = 0.1,
+    CurrentValue = 2.0,
+    Flag = 'SpeedValue',
+    Callback = function(v) Movement.SpeedValue = v end
+})
+
+-- ═══ PESTAÑA VISUALES & ESP ═══
+VisualTab:CreateSection('Configuración General')
+VisualTab:CreateToggle({
+    Name = 'Activar ESP',
+    CurrentValue = true,
+    Flag = 'ESPEnabled',
+    Callback = function(s) ESP.Enabled = s end
+})
+VisualTab:CreateToggle({
+    Name = 'Modo Streamer',
+    CurrentValue = false,
+    Flag = 'StreamerMode',
+    Callback = function(s) ESP.StreamerMode = s end
+})
+VisualTab:CreateSlider({
+    Name = 'Distancia Máxima',
+    Range = {500, 10000},
+    Increment = 100,
+    CurrentValue = 3500,
+    Flag = 'ESPMaxDist',
+    Callback = function(v) ESP.MaxDistance = v end
+})
+VisualTab:CreateSection('Objetos')
+VisualTab:CreateToggle({
+    Name = 'Frutas ESP',
+    CurrentValue = true,
+    Flag = 'FruitESP',
+    Callback = function(s) ESP.ShowFruitESP = s end
+})
+VisualTab:CreateToggle({
+    Name = 'Cofres ESP',
+    CurrentValue = true,
+    Flag = 'ChestESP',
+    Callback = function(s) ESP.ShowChestESP = s end
+})
+
+-- ═══ PESTAÑA EXTRA ═══
+MiscTab:CreateSection('Auto Habilidades')
+MiscTab:CreateToggle({
+    Name = 'Auto V4',
+    CurrentValue = false,
+    Flag = 'AutoV4',
+    Callback = function(s)
+        autoV4 = s
+        if s then startV4() end
+    end
+})
+MiscTab:CreateToggle({
+    Name = 'Dungeon Bypass TP',
+    CurrentValue = false,
+    Flag = 'BypassTP',
+    Callback = function(s) BypassTP = s end
+})
+MiscTab:CreateSlider({
+    Name = 'TP Altura',
+    Range = {10, 100},
+    Increment = 5,
+    CurrentValue = 40,
+    Flag = 'AttackHeight',
+    Callback = function(v) AttackHeight = v end
+})
+
+Rayfield:LoadConfiguration()
