@@ -1044,7 +1044,7 @@ CombatTab:CreateToggle({
 })
 CombatTab:CreateSlider({
     Name = 'Rango Ataque',
-    Range = {100, 10000},
+    Range = {100, 100000},
     Increment = 100,
     CurrentValue = 5000,
     Flag = 'FAR',
@@ -1077,7 +1077,7 @@ CombatTab:CreateToggle({
 })
 CombatTab:CreateSlider({
     Name = 'Distancia',
-    Range = {100, 1000},
+    Range = {100, 3000},
     Increment = 50,
     CurrentValue = 400,
     Flag = 'DGd',
@@ -1176,7 +1176,7 @@ VisualTab:CreateToggle({
 })
 VisualTab:CreateSlider({
     Name = 'Distancia Máxima',
-    Range = {500, 10000},
+    Range = {500, 50000},
     Increment = 100,
     CurrentValue = 3500,
     Flag = 'ESPMaxDist',
