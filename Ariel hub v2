@@ -1006,7 +1006,7 @@ MainTab:CreateToggle({
 })
 MainTab:CreateSlider({
     Name = 'Rango Aimbot',
-    Range = {50, 500},
+    Range = {50, 800},
     Increment = 10,
     CurrentValue = 300,
     Flag = 'AimRange',
@@ -1144,7 +1144,7 @@ MoveTab:CreateToggle({
 })
 MoveTab:CreateSlider({
     Name = 'Multiplicador Velocidad',
-    Range = {1.0, 150.0},
+    Range = {1.0, 150},
     Increment = 0.1,
     CurrentValue = 2.0,
     Flag = 'SpeedValue',
