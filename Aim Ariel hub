@@ -1097,15 +1097,10 @@ local SilentAimModule = (function()
     local function setCurrentSkillKey(key)
         currentSkillKey = key
         lastSkillTime = os.clock()
-        if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
-            local targetPos = PlayersPosition or NPCPosition
-            if targetPos then
-                task.spawn(function() faceTarget(targetPos) end)
-            end
-        end
+        -- No forzar faceTarget aqui: rota el personaje y buguea animaciones de skills
         task.spawn(function()
             local myTime = lastSkillTime
-            task.wait(1.5)
+            task.wait(0.75)
             if lastSkillTime == myTime and currentSkillKey == key then
                 currentSkillKey = nil
             end
@@ -1398,10 +1393,12 @@ local SilentAimModule = (function()
         rawset(MouseModule, "Hit", nil)
         rawset(MouseModule, "Target", nil)
         mmt.__index = function(self, key)
-            if key == "Hit" or key == "Target" then
-                local pos = nil
-                if (SilentAimPlayersEnabled or SilentAimNPCsEnabled) then
-                    -- Prefer player target, else NPC
+            if key == "Hit" then
+                -- Solo mientras se usa una skill (Z/X/C/V/F), no siempre
+                if (SilentAimPlayersEnabled or SilentAimNPCsEnabled)
+                    and currentSkillKey
+                    and not isKeyCurrentlyBlacklisted(currentSkillKey) then
+                    local pos = nil
                     if SilentAimPlayersEnabled and PlayersPosition then
                         pos = PlayersPosition
                     elseif SilentAimNPCsEnabled and NPCPosition then
@@ -1409,14 +1406,13 @@ local SilentAimModule = (function()
                     else
                         pos = PlayersPosition or NPCPosition
                     end
-                end
-                if pos and not (currentSkillKey and isKeyCurrentlyBlacklisted(currentSkillKey)) then
-                    if key == "Hit" then
+                    if pos then
                         return CFrame.new(pos)
                     end
-                    return nil -- Target
                 end
-                return key == "Hit" and realStore.Hit or realStore.Target
+                return realStore.Hit
+            elseif key == "Target" then
+                return realStore.Target
             end
             return rawget(self, key)
         end
@@ -1564,9 +1560,9 @@ local SilentAimModule = (function()
         NPCPosition = nil
     end
 
-    -- MAIN namecall / index hooks (FIXED: redirects skills to players & NPCs)
+    -- MAIN namecall / index hooks (SAFE version — no rompe habilidades)
+    -- Solo redirige el aim (mouse.Hit + Vector3 de aim), no toca otros args
     local function getSilentTargetPos()
-        -- Prefer closer between player target and NPC target when both exist
         local pPos, nPos = PlayersPosition, NPCPosition
         if SilentAimPlayersEnabled and pPos and SilentAimNPCsEnabled and nPos then
             local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -1579,47 +1575,15 @@ local SilentAimModule = (function()
         end
         if SilentAimPlayersEnabled and pPos then return pPos end
         if SilentAimNPCsEnabled and nPos then return nPos end
-        return pPos or nPos
+        return nil
     end
 
-    local function redirectArgsToTarget(args)
+    local function getSilentAimDirection(fromPos)
         local targetPos = getSilentTargetPos()
-        if not targetPos then return args end
-        if not (SilentAimPlayersEnabled or SilentAimNPCsEnabled) then return args end
-        local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-        local myPos = myHRP and myHRP.Position
-        for i, arg in ipairs(args) do
-            if typeof(arg) == "Vector3" then
-                -- Unit / short vectors = direction; large = world position
-                if arg.Magnitude > 0.01 and arg.Magnitude < 5 then
-                    if myPos then
-                        local dir = (targetPos - myPos)
-                        if dir.Magnitude > 0.01 then
-                            args[i] = dir.Unit * arg.Magnitude
-                        end
-                    end
-                else
-                    args[i] = targetPos
-                end
-            elseif typeof(arg) == "CFrame" then
-                args[i] = CFrame.new(targetPos)
-            elseif type(arg) == "table" then
-                -- shallow fix for tables that hold a Vector3 position
-                for k, v in pairs(arg) do
-                    if typeof(v) == "Vector3" then
-                        if v.Magnitude > 0.01 and v.Magnitude < 5 and myPos then
-                            local dir = (targetPos - myPos)
-                            if dir.Magnitude > 0.01 then
-                                arg[k] = dir.Unit * v.Magnitude
-                            end
-                        else
-                            arg[k] = targetPos
-                        end
-                    end
-                end
-            end
-        end
-        return args
+        if not targetPos or not fromPos then return nil end
+        local dir = targetPos - fromPos
+        if dir.Magnitude < 0.05 then return nil end
+        return dir.Unit
     end
 
     pcall(function()
@@ -1633,23 +1597,17 @@ local SilentAimModule = (function()
             local Method = getnamecallmethod()
             local args = {...}
 
-            -- Never touch fruit TAP combo remote key
+            -- Nunca tocar TAP de frutas
             if args[1] == "TAP" then
                 return oldNamecall(self, unpack(args))
             end
 
             local skillKey = getSkillKeyFromArgs(args)
             if skillKey then
-                if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
-                    local targetPos = getSilentTargetPos()
-                    if targetPos then
-                        task.spawn(function() faceTarget(targetPos) end)
-                    end
-                end
                 setCurrentSkillKey(skillKey)
             end
 
-            -- Soru C: force predicted position
+            -- Soru solo en C
             if SoruAutoAimEnabled and SoruPredictedPosition and skillKey == "C" then
                 for i, arg in ipairs(args) do
                     if typeof(arg) == "Vector3" then
@@ -1661,20 +1619,44 @@ local SilentAimModule = (function()
             local skip = false
             if skillKey and isKeyCurrentlyBlacklisted(skillKey) then
                 skip = true
-            elseif not skillKey and currentSkillKey and isKeyCurrentlyBlacklisted(currentSkillKey) then
+            elseif (not skillKey) and currentSkillKey and isKeyCurrentlyBlacklisted(currentSkillKey) then
                 skip = true
             end
 
-            if not skip and (Method == "FireServer" or Method == "InvokeServer") then
-                -- Always redirect skill / combat remotes when silent aim has a target
-                if SilentAimPlayersEnabled or SilentAimNPCsEnabled then
-                    args = redirectArgsToTarget(args)
-                end
-                -- Buddy Sword special
-                if Method == "InvokeServer" and currentTool and currentTool.Name == "Buddy Sword" then
-                    if type(args[1]) == "string" and table.find(Skills, args[1]) then
-                        local tp = getSilentTargetPos()
-                        if tp then args[2] = tp end
+            -- Redirect SOLO si hay target y es FireServer/InvokeServer de skill
+            -- Conservador: solo args[1] si es Vector3 (como Michele original)
+            if not skip and (SilentAimPlayersEnabled or SilentAimNPCsEnabled) then
+                local targetPos = getSilentTargetPos()
+                if targetPos and (Method == "FireServer" or Method == "InvokeServer") then
+                    -- Solo modificar si acabamos de usar una skill (Z/X/C/V/F) o el arg parece aim
+                    local recentSkill = currentSkillKey ~= nil
+                    if recentSkill or skillKey then
+                        if typeof(args[1]) == "Vector3" then
+                            local v = args[1]
+                            local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                            local myPos = myHRP and myHRP.Position
+                            -- Dirección corta (LookVector / unit) → dirección hacia el target
+                            if v.Magnitude > 0.01 and v.Magnitude <= 10 then
+                                if myPos then
+                                    local dir = (targetPos - myPos)
+                                    if dir.Magnitude > 0.05 then
+                                        args[1] = dir.Unit * math.max(v.Magnitude, 1)
+                                    end
+                                end
+                            -- Posición mundo (lejos del jugador) → posición del target
+                            elseif myPos and (v - myPos).Magnitude > 5 then
+                                args[1] = targetPos
+                            -- Posición cerca del jugador también puede ser hit point
+                            elseif myPos then
+                                args[1] = targetPos
+                            end
+                        end
+                        -- Buddy Sword
+                        if Method == "InvokeServer" and currentTool and tostring(currentTool.Name) == "Buddy Sword" then
+                            if type(args[1]) == "string" and table.find(Skills, args[1]) then
+                                args[2] = targetPos
+                            end
+                        end
                     end
                 end
             end
@@ -1683,22 +1665,19 @@ local SilentAimModule = (function()
         end)
 
         mt.__index = newcclosure(function(t, k)
-            -- Silent Aim + Soru: override mouse.Hit / mouse.Target so skills that read mouse aim correctly
             if t == mouse and (k == "Hit" or k == "Target") then
-                local targetPos = nil
-                local targetPart = nil
+                -- Soru tiene prioridad
                 if SoruAutoAimEnabled and SoruPredictedPosition then
-                    targetPos = SoruPredictedPosition
-                    targetPart = SoruCurrentTarget
-                elseif (SilentAimPlayersEnabled or SilentAimNPCsEnabled) then
-                    targetPos = getSilentTargetPos()
+                    if k == "Hit" then return CFrame.new(SoruPredictedPosition) end
+                    if k == "Target" then return SoruCurrentTarget end
                 end
-                if targetPos then
-                    if k == "Hit" then
-                        return CFrame.new(targetPos)
-                    end
-                    if k == "Target" then
-                        return targetPart
+                -- Silent Aim: solo Hit (CFrame). No devolver Target nil (rompe skills)
+                if (SilentAimPlayersEnabled or SilentAimNPCsEnabled) and currentSkillKey then
+                    if not isKeyCurrentlyBlacklisted(currentSkillKey) then
+                        local targetPos = getSilentTargetPos()
+                        if targetPos and k == "Hit" then
+                            return CFrame.new(targetPos)
+                        end
                     end
                 end
             end
