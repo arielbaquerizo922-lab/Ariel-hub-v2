@@ -1,0 +1,1161 @@
+-- ==================================================
+-- Ariel Hub - Versión estable (Leviathan + Sea Events)
+-- ==================================================
+
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
+
+if not success or not Rayfield then
+    warn("No se pudo cargar Rayfield. Intentando método alternativo...")
+    success, Rayfield = pcall(function()
+        return loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
+    end)
+end
+
+if not success or not Rayfield then
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "Error",
+        Text = "No se pudo cargar la interfaz. Prueba otro executor.",
+        Duration = 10
+    })
+    return
+end
+
+local P = game:GetService("Players")
+local RS = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local lp = P.LocalPlayer
+local pg = lp:WaitForChild("PlayerGui", 10)
+local cam = Workspace.CurrentCamera
+local m = lp:GetMouse()
+
+local SoruAim = false
+local soruR = 300
+local velP = 450
+local boostD = 0.55
+local boostE = true
+local FA = false
+local FAr = 5000
+local DG = false
+local DGm = true
+local DGp = true
+local DGs = true
+local DGd = 2500
+local DGsp = 8
+local autoV4 = false
+local BypassTP = false
+local AttackHeight = 40
+local InfiniteZoom = false
+local savedZoom = lp.CameraMaxZoomDistance
+
+local followPlayerEnabled = false
+local followPlayerActive = false
+local followPlayerThread = nil
+local followPlayerTarget = nil
+local followPlayerButton = nil
+local followNPCEnabled = false
+local followNPCActive = false
+local followNPCThread = nil
+local followNPCTarget = nil
+local followNPCButton = nil
+local DISTANCE = 6
+local CHANGE_INTERVAL = 0.1
+local followSpeed = 32
+
+local upv = debug.getupvalue or getupvalue
+local setupv = debug.setupvalue or setupvalue
+local getupvs = debug.getupvalues or getupvalues
+
+local Net = nil
+pcall(function()
+    Net = ReplicatedStorage:WaitForChild("Modules", 10):WaitForChild("Net", 10)
+end)
+local RH = Net and Net:FindFirstChild("RE/RegisterHit")
+local RA = Net and Net:FindFirstChild("RE/RegisterAttack")
+local SGE = Net and Net:FindFirstChild("RE/ShootGunEvent")
+local Validator2 = nil
+pcall(function()
+    Validator2 = ReplicatedStorage:WaitForChild("Remotes", 10):WaitForChild("Validator2", 10)
+end)
+local V2 = Validator2
+local SF = nil
+local DV = {v26=12, v22=13, v25=14, v21=15, v23=16, v24=17, v27=18}
+
+local Movement = {}
+Movement.AirJumpConnection = nil
+Movement.WaterPlatform = nil
+Movement.LavaPlatform = nil
+Movement.SpeedBoost = false
+Movement.SpeedValue = 2.0
+Movement.SuperJump = false
+Movement.SuperJumpPower = 140
+Movement.WalkOnWater = false
+Movement.WalkOnLava = false
+Movement.InfiniteAirJump = false
+Movement.NoClip = false
+
+function Movement.StartAirJumpLoop()
+    if Movement.AirJumpConnection then return end
+    Movement.AirJumpConnection = UIS.JumpRequest:Connect(function()
+        if Movement.InfiniteAirJump then
+            local char = lp.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum:ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end
+    end)
+end
+
+function Movement.StopAirJumpLoop()
+    if Movement.AirJumpConnection then
+        Movement.AirJumpConnection:Disconnect()
+        Movement.AirJumpConnection = nil
+    end
+end
+
+function Movement.ApplySpeedBoost(deltaTime)
+    if not Movement.SpeedBoost then return end
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum or hum.Health <= 0 then return end
+    local moveDir = hum.MoveDirection
+    if moveDir.Magnitude > 0.01 then
+        local factor = math.clamp(Movement.SpeedValue, 1.0, 5.0)
+        local dt = math.clamp(deltaTime or 0.016, 0.005, 0.05)
+        hrp.CFrame = hrp.CFrame + (moveDir * factor * 25 * dt)
+    end
+end
+
+function Movement.ExecuteSuperJump()
+    local char = lp.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.AssemblyLinearVelocity = Vector3.new(hrp.AssemblyLinearVelocity.X, Movement.SuperJumpPower, hrp.AssemblyLinearVelocity.Z)
+end
+
+function Movement.ToggleWalkOnWater(enabled)
+    Movement.WalkOnWater = enabled
+    if enabled then
+        if not Movement.WaterPlatform then
+            local part = Instance.new("Part")
+            part.Name = "AH_WaterPlatform"
+            part.Size = Vector3.new(120, 2, 120)
+            part.Anchored = true
+            part.Transparency = 1
+            part.CanCollide = true
+            part.Parent = Workspace
+            Movement.WaterPlatform = part
+        end
+    else
+        if Movement.WaterPlatform then
+            Movement.WaterPlatform:Destroy()
+            Movement.WaterPlatform = nil
+        end
+    end
+end
+
+function Movement.ToggleWalkOnLava(enabled)
+    Movement.WalkOnLava = enabled
+    if enabled then
+        if not Movement.LavaPlatform then
+            local part = Instance.new("Part")
+            part.Name = "AH_LavaPlatform"
+            part.Size = Vector3.new(100, 2, 100)
+            part.Anchored = true
+            part.Transparency = 1
+            part.CanCollide = true
+            part.Parent = Workspace
+            Movement.LavaPlatform = part
+        end
+    else
+        if Movement.LavaPlatform then
+            Movement.LavaPlatform:Destroy()
+            Movement.LavaPlatform = nil
+        end
+    end
+end
+
+local FullBrightEnabled = false
+local FullBrightOriginal = {}
+
+local function ApplyFullBright()
+    FullBrightOriginal.Brightness = Lighting.Brightness
+    FullBrightOriginal.Ambient = Lighting.Ambient
+    FullBrightOriginal.OutdoorAmbient = Lighting.OutdoorAmbient
+    FullBrightOriginal.ExposureCompensation = Lighting.ExposureCompensation
+    FullBrightOriginal.ClockTime = Lighting.ClockTime
+    FullBrightOriginal.FogStart = Lighting.FogStart
+    FullBrightOriginal.FogEnd = Lighting.FogEnd
+    Lighting.Brightness = 2
+    Lighting.Ambient = Color3.fromRGB(178, 178, 178)
+    Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+    Lighting.ExposureCompensation = 0.5
+    Lighting.ClockTime = 14
+    Lighting.FogStart = 999999999
+    Lighting.FogEnd = 999999999
+end
+
+local function RestoreLighting()
+    Lighting.Brightness = FullBrightOriginal.Brightness or 1
+    Lighting.Ambient = FullBrightOriginal.Ambient or Color3.fromRGB(127, 127, 127)
+    Lighting.OutdoorAmbient = FullBrightOriginal.OutdoorAmbient or Color3.fromRGB(127, 127, 127)
+    Lighting.ExposureCompensation = FullBrightOriginal.ExposureCompensation or 0
+    Lighting.ClockTime = FullBrightOriginal.ClockTime or 12
+    Lighting.FogStart = FullBrightOriginal.FogStart or 0
+    Lighting.FogEnd = FullBrightOriginal.FogEnd or 100000
+end
+
+local ESP = {}
+ESP.Objects = {}
+ESP.Enabled = true
+ESP.StreamerMode = false
+ESP.MaxDistance = 3500
+ESP.ShowFruitESP = true
+
+function ESP.CreateBillboard(player)
+    if not player or player == lp then return nil end
+    if ESP.Objects[player] then return ESP.Objects[player] end
+    local Billboard = Instance.new("BillboardGui")
+    Billboard.Name = "AH_ESP_" .. player.Name
+    Billboard.Size = UDim2.fromOffset(280, 75)
+    Billboard.StudsOffset = Vector3.new(0, 3.5, 0)
+    Billboard.AlwaysOnTop = true
+    Billboard.MaxDistance = ESP.MaxDistance
+    Billboard.Enabled = ESP.Enabled
+    
+    local Header = Instance.new("TextLabel")
+    Header.Name = "Header"
+    Header.Size = UDim2.new(1, 0, 0, 20)
+    Header.BackgroundTransparency = 1
+    Header.Font = Enum.Font.GothamBold
+    Header.TextSize = 13
+    Header.TextColor3 = Color3.fromRGB(255,255,255)
+    Header.TextStrokeTransparency = 0.3
+    Header.Parent = Billboard
+    
+    local HealthBg = Instance.new("Frame")
+    HealthBg.Name = "HealthBg"
+    HealthBg.Size = UDim2.new(0.9, 0, 0, 5)
+    HealthBg.Position = UDim2.new(0.05, 0, 0, 22)
+    HealthBg.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    HealthBg.Parent = Billboard
+    
+    local HealthBar = Instance.new("Frame")
+    HealthBar.Name = "HealthBar"
+    HealthBar.Size = UDim2.new(1, 0, 1, 0)
+    HealthBar.BackgroundColor3 = Color3.fromRGB(50,220,90)
+    HealthBar.Parent = HealthBg
+    
+    local InfoLabel = Instance.new("TextLabel")
+    InfoLabel.Name = "InfoLabel"
+    InfoLabel.Size = UDim2.new(1, 0, 0, 18)
+    InfoLabel.Position = UDim2.new(0, 0, 0, 28)
+    InfoLabel.BackgroundTransparency = 1
+    InfoLabel.Font = Enum.Font.Gotham
+    InfoLabel.TextSize = 10
+    InfoLabel.TextColor3 = Color3.fromRGB(200,200,220)
+    InfoLabel.Parent = Billboard
+    
+    local entry = {Player=player, Billboard=Billboard, Header=Header, HealthBar=HealthBar, InfoLabel=InfoLabel}
+    ESP.Objects[player] = entry
+    pcall(function()
+        local parent = CoreGui:FindFirstChild("AH_ESP") or Instance.new("Folder", CoreGui)
+        parent.Name = "AH_ESP"
+        Billboard.Parent = parent
+    end)
+    return entry
+end
+
+function ESP.UpdateBillboard(entry)
+    if not entry or not entry.Player then return end
+    local player = entry.Player
+    local char = player.Character
+    if not char then entry.Billboard.Enabled = false return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum or hum.Health <= 0 then
+        entry.Billboard.Enabled = false return
+    end
+    entry.Billboard.Adornee = hrp
+    entry.Billboard.Enabled = ESP.Enabled
+    local myHRP = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    local distance = myHRP and math.floor((hrp.Position - myHRP.Position).Magnitude) or 0
+    local displayName = ESP.StreamerMode and ("Jugador " .. player.UserId%100) or player.DisplayName
+    local userName = ESP.StreamerMode and ("???") or player.Name
+    local nameStr = (displayName \~= userName) and (displayName .. " (@" .. userName .. ")") or displayName
+    entry.Header.Text = string.format("%s [%dm]", nameStr, distance)
+    local hpRatio = math.clamp(hum.Health/math.max(hum.MaxHealth,1), 0, 1)
+    entry.HealthBar.Size = UDim2.new(hpRatio, 0, 1, 0)
+    entry.HealthBar.BackgroundColor3 = Color3.fromRGB(math.floor(255*(1-hpRatio)), math.floor(255*hpRatio), 60)
+    entry.InfoLabel.Text = string.format("HP: %d/%d", math.floor(hum.Health), math.floor(hum.MaxHealth))
+end
+
+function ESP.UpdateLoop()
+    task.spawn(function()
+        while true do
+            pcall(function()
+                if ESP.Enabled then
+                    for _, player in ipairs(P:GetPlayers()) do
+                        if player \~= lp then
+                            local entry = ESP.Objects[player] or ESP.CreateBillboard(player)
+                            if entry then ESP.UpdateBillboard(entry) end
+                        end
+                    end
+                end
+            end)
+            task.wait(0.2)
+        end
+    end)
+end
+
+local function DGI()
+    pcall(function()
+        if not SGE then
+            local netFolder = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+            if netFolder then SGE = netFolder:FindFirstChild("RE/ShootGunEvent") end
+        end
+        if not V2 then
+            local rem = ReplicatedStorage:FindFirstChild("Remotes")
+            if rem then V2 = rem:FindFirstChild("Validator2") end
+        end
+        local success, module = pcall(require, ReplicatedStorage:WaitForChild("Controllers", 5):WaitForChild("CombatController", 5))
+        if success and type(module) == "table" and module.Attack then
+            SF = upv(module.Attack, 9)
+        end
+    end)
+end
+
+local function NV()
+    if not SF then DGI() end
+    if not SF then return 0, 0 end
+    local uv = getupvs(SF) or {}
+    if uv[DV.v21] \~= 727595 then
+        for i, v in pairs(uv) do
+            if v == 727595 then
+                local o = i - 15
+                DV.v21 = i; DV.v22 = 13+o; DV.v23 = 16+o
+                DV.v24 = 17+o; DV.v25 = 14+o; DV.v26 = 12+o; DV.v27 = 18+o
+                break
+            end
+        end
+    end
+    local v1 = upv(SF, DV.v21)
+    local v2 = upv(SF, DV.v22)
+    local v3 = upv(SF, DV.v23)
+    local v4 = upv(SF, DV.v24)
+    local v5 = upv(SF, DV.v25)
+    local v6 = upv(SF, DV.v26)
+    local v7 = upv(SF, DV.v27)
+    if not (v1 and v2 and v3 and v4 and v5 and v6 and v7) then return 0, 0 end
+    local v8 = v6 * v2
+    local v9 = (v5 * v2 + v6 * v1) % v3
+    v9 = (v9 * v3 + v8) % v4
+    v5 = math.floor(v9 / v3)
+    v6 = v9 - v5 * v3
+    v7 = v7 + 1
+    setupv(SF, DV.v25, v5)
+    setupv(SF, DV.v26, v6)
+    setupv(SF, DV.v27, v7)
+    return math.floor(v9 / v4 * 16777215), v7
+end
+
+local function DGT()
+    local c = lp.Character
+    local r = c and c:FindFirstChild("HumanoidRootPart")
+    if not r then return end
+    local cl, d = nil, math.max(DGd, 2500)
+    local rp = r.Position
+
+    local function checkPart(part)
+        if not part or not part:IsA("BasePart") then return end
+        local dx = (part.Position - rp).Magnitude
+        if dx < d then
+            d = dx
+            cl = part
+        end
+    end
+
+    if DGm then
+        local E = workspace:FindFirstChild("Enemies")
+        if E then
+            for _, e in next, E:GetChildren() do
+                local hr = e:FindFirstChild("HumanoidRootPart") or e.PrimaryPart
+                local h = e:FindFirstChildOfClass("Humanoid")
+                if hr and h and h.Health > 0 then
+                    checkPart(hr)
+                end
+            end
+        end
+    end
+
+    if DGp then
+        for _, pl in next, P:GetPlayers() do
+            if pl \~= lp and pl.Character then
+                local hr = pl.Character:FindFirstChild("HumanoidRootPart")
+                local h = pl.Character:FindFirstChildOfClass("Humanoid")
+                if hr and h and h.Health > 0 then
+                    checkPart(hr)
+                end
+            end
+        end
+    end
+
+    if DGs then
+        for _, folderName in next, {"SeaBeasts", "SeaEvents"} do
+            local folder = workspace:FindFirstChild(folderName)
+            if folder then
+                for _, m in next, folder:GetChildren() do
+                    local nameL = string.lower(m.Name)
+                    if nameL:find("leviathan") then
+                        for _, part in next, m:GetDescendants() do
+                            if part:IsA("BasePart") then
+                                local pname = string.lower(part.Name)
+                                if pname:find("hitbox") or pname:find("segment") or pname:find("body") or pname:find("head") or pname:find("tail") or pname:find("part") then
+                                    checkPart(part)
+                                end
+                            end
+                        end
+                        if m.PrimaryPart then checkPart(m.PrimaryPart) end
+                    else
+                        local hr = m:FindFirstChild("HumanoidRootPart") or m.PrimaryPart
+                        if hr then
+                            checkPart(hr)
+                        else
+                            for _, part in next, m:GetDescendants() do
+                                if part:IsA("BasePart") then
+                                    checkPart(part)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        for _, m in next, workspace:GetChildren() do
+            if m:IsA("Model") and string.lower(m.Name):find("leviathan") then
+                for _, part in next, m:GetDescendants() do
+                    if part:IsA("BasePart") then
+                        checkPart(part)
+                    end
+                end
+            end
+        end
+    end
+
+    return cl
+end
+
+-- Resto de funciones (Follow, Boost, etc.)
+local function GetClosestNPC()
+    local closest, shortestDistance = nil, math.huge
+    local myChar = lp.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+    local myPos = myChar.HumanoidRootPart.Position
+    local enemies = workspace:FindFirstChild("Enemies")
+    if enemies then
+        for _, npc in pairs(enemies:GetChildren()) do
+            local hum = npc:FindFirstChild("Humanoid")
+            local hrp = npc:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.Health > 0 then
+                local dist = (hrp.Position - myPos).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closest = npc
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function GetClosestPlayer()
+    local closest, shortestDistance = nil, math.huge
+    local myChar = lp.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+    local myPos = myChar.HumanoidRootPart.Position
+    for _, p in pairs(P:GetPlayers()) do
+        if p \~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+            if p.Character.Humanoid.Health > 0 then
+                local dist = (p.Character.HumanoidRootPart.Position - myPos).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closest = p
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function StopFollowingPlayer()
+    followPlayerActive = false
+    if followPlayerThread then coroutine.close(followPlayerThread) followPlayerThread = nil end
+    followPlayerTarget = nil
+    if followPlayerButton then
+        followPlayerButton.Text = "Seg Jug"
+        followPlayerButton.TextColor3 = Color3.fromRGB(255,255,255)
+    end
+end
+
+local function StopFollowingNPC()
+    followNPCActive = false
+    if followNPCThread then coroutine.close(followNPCThread) followNPCThread = nil end
+    followNPCTarget = nil
+    if followNPCButton then
+        followNPCButton.Text = "Seg NPC"
+        followNPCButton.TextColor3 = Color3.fromRGB(255,255,255)
+    end
+end
+
+local function StartFollowingPlayer()
+    followPlayerTarget = GetClosestPlayer()
+    if not followPlayerTarget then
+        followPlayerActive = false
+        return
+    end
+    if followPlayerButton then
+        followPlayerButton.TextColor3 = Color3.fromRGB(0,255,120)
+    end
+    followPlayerThread = coroutine.create(function()
+        while followPlayerActive do
+            local myChar = lp.Character
+            local targetChar = followPlayerTarget and followPlayerTarget.Character
+            if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+                task.wait(CHANGE_INTERVAL)
+                continue
+            end
+            if not targetChar or not targetChar:FindFirstChild("HumanoidRootPart") or not targetChar:FindFirstChild("Humanoid") or targetChar.Humanoid.Health <= 0 then
+                followPlayerTarget = GetClosestPlayer()
+                if not followPlayerTarget then StopFollowingPlayer() break end
+                targetChar = followPlayerTarget.Character
+            end
+            local myHRP = myChar.HumanoidRootPart
+            local targetHRP = targetChar.HumanoidRootPart
+            local direccion = (targetHRP.Position - myHRP.Position).Unit
+            local distancia = (targetHRP.Position - myHRP.Position).Magnitude
+            if distancia > DISTANCE then
+                myHRP.Velocity = direccion * followSpeed
+            else
+                myHRP.Velocity = Vector3.new(0, myHRP.Velocity.Y, 0)
+            end
+            task.wait(CHANGE_INTERVAL)
+        end
+    end)
+    coroutine.resume(followPlayerThread)
+end
+
+local function StartFollowingNPC()
+    followNPCTarget = GetClosestNPC()
+    if not followNPCTarget then
+        followNPCActive = false
+        return
+    end
+    if followNPCButton then
+        followNPCButton.TextColor3 = Color3.fromRGB(0,255,120)
+    end
+    followNPCThread = coroutine.create(function()
+        while followNPCActive do
+            local myChar = lp.Character
+            local targetNPC = followNPCTarget
+            if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then
+                task.wait(CHANGE_INTERVAL)
+                continue
+            end
+            if not targetNPC or not targetNPC:FindFirstChild("HumanoidRootPart") or not targetNPC:FindFirstChild("Humanoid") or targetNPC.Humanoid.Health <= 0 then
+                followNPCTarget = GetClosestNPC()
+                if not followNPCTarget then StopFollowingNPC() break end
+                targetNPC = followNPCTarget
+            end
+            local myHRP = myChar.HumanoidRootPart
+            local targetHRP = targetNPC.HumanoidRootPart
+            local direccion = (targetHRP.Position - myHRP.Position).Unit
+            local distancia = (targetHRP.Position - myHRP.Position).Magnitude
+            if distancia > DISTANCE then
+                myHRP.Velocity = direccion * followSpeed
+            else
+                myHRP.Velocity = Vector3.new(0, myHRP.Velocity.Y, 0)
+            end
+            task.wait(CHANGE_INTERVAL)
+        end
+    end)
+    coroutine.resume(followNPCThread)
+end
+
+local function CreateFollowButtons()
+    if followPlayerButton or followNPCButton then return end
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name = "FollowGui"
+    Gui.ResetOnSpawn = false
+    pcall(function() Gui.Parent = CoreGui end)
+    if not Gui.Parent then Gui.Parent = pg end
+    
+    local btnJug = Instance.new("TextButton")
+    btnJug.Name = "SegJugBtn"
+    btnJug.Size = UDim2.new(0,80,0,30)
+    btnJug.Position = UDim2.new(0.08,0,0.42,0)
+    btnJug.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    btnJug.BackgroundTransparency = 0.5
+    btnJug.BorderColor3 = Color3.fromRGB(255,255,255)
+    btnJug.Text = "Seg Jug"
+    btnJug.TextColor3 = Color3.fromRGB(255,255,255)
+    btnJug.Font = Enum.Font.SourceSansBold
+    btnJug.TextSize = 14
+    btnJug.Active = true
+    btnJug.Draggable = true
+    btnJug.Parent = Gui
+    followPlayerButton = btnJug
+    btnJug.MouseButton1Click:Connect(function()
+        followPlayerActive = not followPlayerActive
+        if followPlayerActive then StartFollowingPlayer() else StopFollowingPlayer() end
+    end)
+    
+    local btnNPC = Instance.new("TextButton")
+    btnNPC.Name = "SegNPCBtn"
+    btnNPC.Size = UDim2.new(0,80,0,30)
+    btnNPC.Position = UDim2.new(0.08,0,0.47,0)
+    btnNPC.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    btnNPC.BackgroundTransparency = 0.5
+    btnNPC.BorderColor3 = Color3.fromRGB(255,255,255)
+    btnNPC.Text = "Seg NPC"
+    btnNPC.TextColor3 = Color3.fromRGB(255,255,255)
+    btnNPC.Font = Enum.Font.SourceSansBold
+    btnNPC.TextSize = 14
+    btnNPC.Active = true
+    btnNPC.Draggable = true
+    btnNPC.Parent = Gui
+    followNPCButton = btnNPC
+    btnNPC.MouseButton1Click:Connect(function()
+        followNPCActive = not followNPCActive
+        if followNPCActive then StartFollowingNPC() else StopFollowingNPC() end
+    end)
+end
+
+local function DestroyFollowButtons()
+    if followPlayerButton then
+        local p = followPlayerButton.Parent
+        followPlayerButton:Destroy()
+        if p then p:Destroy() end
+        followPlayerButton = nil
+    end
+    followNPCButton = nil
+    followPlayerActive = false
+    followNPCActive = false
+end
+
+local bg = nil
+local function dBG() if bg then bg:Destroy() bg = nil end end
+local function doB()
+    if not boostE then return end
+    local c = lp.Character
+    if not c then return end
+    local hr = c:FindFirstChild("HumanoidRootPart")
+    if not hr then return end
+    local dir = cam.CFrame.LookVector
+    local a = Instance.new("Attachment")
+    a.Parent = hr
+    local lv = Instance.new("LinearVelocity")
+    lv.MaxForce = 99999999
+    lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Vector
+    lv.VectorVelocity = dir * velP
+    lv.Attachment0 = a
+    lv.Parent = hr
+    task.delay(boostD, function()
+        if lv then lv:Destroy() end
+        if a then a:Destroy() end
+    end)
+end
+
+local function cBG()
+    dBG()
+    local g = Instance.new("ScreenGui")
+    g.Name = "SB"
+    g.ResetOnSpawn = false
+    g.Parent = pg
+    bg = g
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(0, 90, 0, 42)
+    f.Position = UDim2.new(0.37, 0, 0.26, 0)
+    f.BackgroundColor3 = Color3.fromRGB(75, 30, 135)
+    f.Active = true
+    f.Draggable = true
+    f.Parent = g
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 12)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 40, 0, 30)
+    b.Position = UDim2.new(0, 12, 0, 6)
+    b.BackgroundColor3 = Color3.fromRGB(210, 140, 255)
+    b.Text = "Z"
+    b.TextSize = 18
+    b.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    b.Parent = f
+    b.MouseButton1Click:Connect(function()
+        doB()
+        b.Text = "!"
+        b.BackgroundColor3 = Color3.fromRGB(50, 200, 80)
+        task.wait(0.35)
+        b.Text = "Z"
+        b.BackgroundColor3 = Color3.fromRGB(210, 140, 255)
+    end)
+end
+
+UIS.InputBegan:Connect(function(i, gp)
+    if gp then return end
+    if i.KeyCode == Enum.KeyCode.Z and boostE then doB() end
+    if i.KeyCode == Enum.KeyCode.Space and Movement.SuperJump then
+        Movement.ExecuteSuperJump()
+    end
+end)
+
+local V4Con = nil
+local function startV4()
+    if V4Con then V4Con:Disconnect() end
+    V4Con = RS.Heartbeat:Connect(function()
+        if not autoV4 then V4Con:Disconnect() V4Con = nil return end
+        pcall(function()
+            local c = lp.Character
+            if c and c:FindFirstChild("Awakening") then
+                c.Awakening.RemoteFunction:InvokeServer(true)
+            elseif lp.Backpack:FindFirstChild("Awakening") then
+                lp.Backpack.Awakening.RemoteFunction:InvokeServer(true)
+            end
+        end)
+    end)
+end
+
+RS.RenderStepped:Connect(function(deltaTime)
+    if InfiniteZoom then
+        lp.CameraMaxZoomDistance = math.huge
+    else
+        lp.CameraMaxZoomDistance = savedZoom
+    end
+    
+    if Movement.NoClip and lp.Character then
+        for _, p in next, lp.Character:GetDescendants() do
+            if p:IsA("BasePart") then p.CanCollide = false end
+        end
+    end
+    
+    Movement.ApplySpeedBoost(deltaTime)
+    if Movement.WaterPlatform then
+        local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then Movement.WaterPlatform.Position = Vector3.new(hrp.Position.X, -0.5, hrp.Position.Z) end
+    end
+    if Movement.LavaPlatform then
+        local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then Movement.LavaPlatform.Position = Vector3.new(hrp.Position.X, 9.5, hrp.Position.Z) end
+    end
+    
+    if FA then pcall(function()
+        local c = lp.Character
+        local my = c and c:FindFirstChild("HumanoidRootPart")
+        if not my then return end
+        local t = {}
+        for _, pl in next, P:GetPlayers() do
+            if pl \~= lp and pl.Character then
+                local hr = pl.Character:FindFirstChild("HumanoidRootPart")
+                local h = pl.Character:FindFirstChild("Humanoid")
+                if hr and h and h.Health > 0 and (hr.Position - my.Position).Magnitude <= FAr then
+                    table.insert(t, pl.Character)
+                end
+            end
+        end
+        local E = workspace:FindFirstChild("Enemies")
+        if E then
+            for _, n in next, E:GetChildren() do
+                local hr = n:FindFirstChild("HumanoidRootPart")
+                local h = n:FindFirstChild("Humanoid")
+                if hr and h and h.Health > 0 and (hr.Position - my.Position).Magnitude <= FAr then
+                    table.insert(t, n)
+                end
+            end
+        end
+        if #t > 0 then
+            local at = {}
+            for _, ch in next, t do
+                local hd = ch:FindFirstChild("Head")
+                if hd then table.insert(at, {ch, hd}) end
+            end
+            if #at > 0 then
+                RA:FireServer(0)
+                RH:FireServer(at[1][2], at)
+            end
+        end
+    end) end
+    
+    if DG then pcall(function()
+        local c = lp.Character
+        local tool = c and c:FindFirstChildOfClass("Tool")
+        if tool and tool.ToolTip == "Gun" then
+            if not SGE or not V2 or not SF then DGI() end
+            local tar = DGT()
+            if tar then
+                for i = 1, DGsp do
+                    local cd, cnt = NV()
+                    if cd \~= 0 then
+                        tool:SetAttribute("LocalOverheat", 0)
+                        tool:SetAttribute("LocalTotalShots", (tool:GetAttribute("LocalTotalShots") or 0) + 1)
+                        if V2 then V2:FireServer(cd, cnt) end
+                        if SGE then SGE:FireServer(tar.Position, {tar}) end
+                    end
+                end
+            end
+        end
+    end) end
+end)
+
+RS.Heartbeat:Connect(function()
+    if not BypassTP then return end
+    pcall(function()
+        local c = lp.Character
+        local hrp = c and c:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local closest, shortest = nil, math.huge
+        local folder = workspace:FindFirstChild("Enemies") or workspace
+        for _, obj in ipairs(folder:GetChildren()) do
+            if obj:IsA("Model") and obj \~= c then
+                local nameL = string.lower(obj.Name)
+                if nameL == "blank buddy" or nameL == "sombra" then continue end
+                local hum = obj:FindFirstChildOfClass("Humanoid")
+                local root = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Head")
+                if hum and hum.Health > 0 and root then
+                    local d = (root.Position - hrp.Position).Magnitude
+                    if string.find(nameL, "gas knight") or string.find(nameL, "kitsune") then d = d - 1000 end
+                    if d < shortest then shortest = d closest = obj end
+                end
+            end
+        end
+        if closest then
+            local root = closest:FindFirstChild("HumanoidRootPart") or closest:FindFirstChild("Head")
+            if root then hrp.CFrame = root.CFrame * CFrame.new(0, AttackHeight, 0) end
+        end
+    end)
+end)
+
+-- Aimbot metatable
+pcall(function()
+    local mt = getrawmetatable(game)
+    local oldIdx = mt.__index
+    setreadonly(mt, false)
+    mt.__index = newcclosure(function(self, k)
+        if not checkcaller() and self == m and (k == "Hit" or k == "Target") then
+            if SoruAim then
+                local cl, sD = nil, math.huge
+                local r = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                if r then
+                    for _, pl in next, P:GetPlayers() do
+                        if pl \~= lp and pl.Character and pl.Character:FindFirstChild("HumanoidRootPart") then
+                            local hr = pl.Character.HumanoidRootPart
+                            local d = (r.Position - hr.Position).Magnitude
+                            if d < sD and d <= soruR then sD = d cl = hr end
+                        end
+                    end
+                    local E = workspace:FindFirstChild("Enemies")
+                    if E then
+                        for _, n in next, E:GetChildren() do
+                            local hr = n:FindFirstChild("HumanoidRootPart")
+                            local h = n:FindFirstChild("Humanoid")
+                            if hr and h and h.Health > 0 then
+                                local d = (r.Position - hr.Position).Magnitude
+                                if d < sD and d <= soruR then sD = d cl = hr end
+                            end
+                        end
+                    end
+                end
+                if cl then
+                    if k == "Hit" then return CFrame.new(cl.Position) end
+                    if k == "Target" then return cl end
+                end
+            end
+        end
+        return oldIdx(self, k)
+    end)
+    setreadonly(mt, true)
+end)
+
+ESP.UpdateLoop()
+
+-- Crear interfaz
+local W = Rayfield:CreateWindow({
+    Name = "Ariel Hub",
+    LoadingTitle = "Ariel Hub",
+    ConfigurationSaving = {Enabled = true, FolderName = "ArielHub", FileName = "Config"},
+    KeySystem = false
+})
+
+local MainTab = W:CreateTab("Principal", 4483362458)
+local CombatTab = W:CreateTab("Combate", 4483362458)
+local MoveTab = W:CreateTab("Movimiento", 4483362458)
+local VisualTab = W:CreateTab("Visuales & ESP", 4483362458)
+local MiscTab = W:CreateTab("Extra", 4483362458)
+
+MainTab:CreateSection("Seguimiento")
+MainTab:CreateToggle({
+    Name = "Mostrar Botón Seg Jugador",
+    CurrentValue = false,
+    Flag = "FollowPlayer",
+    Callback = function(v)
+        followPlayerEnabled = v
+        if v then CreateFollowButtons()
+        else if not followNPCEnabled then DestroyFollowButtons() end end
+    end
+})
+MainTab:CreateToggle({
+    Name = "Mostrar Botón Seg NPC",
+    CurrentValue = false,
+    Flag = "FollowNPC",
+    Callback = function(v)
+        followNPCEnabled = v
+        if v then CreateFollowButtons()
+        else if not followPlayerEnabled then DestroyFollowButtons() end end
+    end
+})
+MainTab:CreateSlider({
+    Name = "Velocidad Seguimiento",
+    Range = {10, 2000},
+    Increment = 5,
+    CurrentValue = followSpeed,
+    Flag = "FollowSpeed",
+    Callback = function(v) followSpeed = v end
+})
+
+MainTab:CreateSection("Boost")
+MainTab:CreateToggle({
+    Name = "Z Boost",
+    CurrentValue = false,
+    Flag = "ZBoost",
+    Callback = function(s)
+        boostE = s
+        if s then cBG() else dBG() end
+    end
+})
+MainTab:CreateToggle({
+    Name = "Aimbot",
+    CurrentValue = false,
+    Flag = "Aimbot",
+    Callback = function(s) SoruAim = s end
+})
+MainTab:CreateSlider({
+    Name = "Rango Aimbot",
+    Range = {50, 800},
+    Increment = 10,
+    CurrentValue = 300,
+    Flag = "AimRange",
+    Callback = function(v) soruR = v end
+})
+MainTab:CreateSlider({
+    Name = "Potencia",
+    Range = {100, 1500},
+    Increment = 10,
+    CurrentValue = 450,
+    Flag = "Vel",
+    Callback = function(v) velP = v end
+})
+MainTab:CreateSlider({
+    Name = "Duracion",
+    Range = {0.1, 2.0},
+    Increment = 0.05,
+    CurrentValue = 0.55,
+    Flag = "Dur",
+    Callback = function(v) boostD = v end
+})
+MainTab:CreateToggle({
+    Name = "Infinite Zoom",
+    CurrentValue = false,
+    Flag = "InfiniteZoom",
+    Callback = function(s) InfiniteZoom = s end
+})
+
+CombatTab:CreateSection("Ataque")
+CombatTab:CreateToggle({
+    Name = "Fast Attack",
+    CurrentValue = false,
+    Flag = "FA",
+    Callback = function(s) FA = s end
+})
+CombatTab:CreateSlider({
+    Name = "Rango Ataque",
+    Range = {100, 100000},
+    Increment = 100,
+    CurrentValue = 5000,
+    Flag = "FAR",
+    Callback = function(v) FAr = v end
+})
+
+CombatTab:CreateSection("Dragon Gun (Leviathan)")
+CombatTab:CreateToggle({
+    Name = "Auto Gun",
+    CurrentValue = false,
+    Flag = "DG",
+    Callback = function(s) DG = s end
+})
+CombatTab:CreateToggle({
+    Name = "Atacar Mobs",
+    CurrentValue = true,
+    Flag = "DGm",
+    Callback = function(s) DGm = s end
+})
+CombatTab:CreateToggle({
+    Name = "Atacar Jugadores",
+    CurrentValue = true,
+    Flag = "DGp",
+    Callback = function(s) DGp = s end
+})
+CombatTab:CreateToggle({
+    Name = "Atacar Eventos Mar",
+    CurrentValue = true,
+    Flag = "DGs",
+    Callback = function(s) DGs = s end
+})
+CombatTab:CreateSlider({
+    Name = "Distancia",
+    Range = {100, 5000},
+    Increment = 50,
+    CurrentValue = 2500,
+    Flag = "DGd",
+    Callback = function(v) DGd = v end
+})
+CombatTab:CreateSlider({
+    Name = "Disparos/Frame",
+    Range = {1, 15},
+    Increment = 1,
+    CurrentValue = 8,
+    Flag = "DGsp",
+    Callback = function(v) DGsp = v end
+})
+
+MoveTab:CreateSection("General")
+MoveTab:CreateToggle({
+    Name = "No Clip",
+    CurrentValue = false,
+    Flag = "NoClipMov",
+    Callback = function(s) Movement.NoClip = s end
+})
+MoveTab:CreateToggle({
+    Name = "Caminar en Agua",
+    CurrentValue = false,
+    Flag = "WalkWaterMov",
+    Callback = function(s) Movement.ToggleWalkOnWater(s) end
+})
+MoveTab:CreateToggle({
+    Name = "Caminar en Lava",
+    CurrentValue = false,
+    Flag = "WalkLavaMov",
+    Callback = function(s) Movement.ToggleWalkOnLava(s) end
+})
+
+MoveTab:CreateSection("Salto")
+MoveTab:CreateToggle({
+    Name = "Salto Infinito",
+    CurrentValue = false,
+    Flag = "InfiniteAirJump",
+    Callback = function(s)
+        Movement.InfiniteAirJump = s
+        if s then Movement.StartAirJumpLoop() else Movement.StopAirJumpLoop() end
+    end
+})
+MoveTab:CreateToggle({
+    Name = "Super Salto",
+    CurrentValue = false,
+    Flag = "SuperJumpMov",
+    Callback = function(s) Movement.SuperJump = s end
+})
+MoveTab:CreateSlider({
+    Name = "Fuerza Super Salto",
+    Range = {50, 300},
+    Increment = 5,
+    CurrentValue = 140,
+    Flag = "SuperJumpPower",
+    Callback = function(v) Movement.SuperJumpPower = v end
+})
+
+MoveTab:CreateSection("Velocidad")
+MoveTab:CreateToggle({
+    Name = "Boost de Velocidad",
+    CurrentValue = false,
+    Flag = "SpeedBoost",
+    Callback = function(s) Movement.SpeedBoost = s end
+})
+MoveTab:CreateSlider({
+    Name = "Multiplicador Velocidad",
+    Range = {1.0, 15},
+    Increment = 0.1,
+    CurrentValue = 2.0,
+    Flag = "SpeedValue",
+    Callback = function(v) Movement.SpeedValue = v end
+})
+
+VisualTab:CreateSection("Iluminación")
+VisualTab:CreateToggle({
+    Name = "Full Brightness",
+    CurrentValue = false,
+    Flag = "FullBright",
+    Callback = function(s)
+        FullBrightEnabled = s
+        if s then ApplyFullBright() else RestoreLighting() end
+    end
+})
+
+VisualTab:CreateSection("Configuración General")
+VisualTab:CreateToggle({
+    Name = "Activar ESP",
+    CurrentValue = true,
+    Flag = "ESPEnabled",
+    Callback = function(s) ESP.Enabled = s end
+})
+VisualTab:CreateToggle({
+    Name = "Modo Streamer",
+    CurrentValue = false,
+    Flag = "StreamerMode",
+    Callback = function(s) ESP.StreamerMode = s end
+})
+VisualTab:CreateSlider({
+    Name = "Distancia Máxima",
+    Range = {500, 50000},
+    Increment = 100,
+    CurrentValue = 3500,
+    Flag = "ESPMaxDist",
+    Callback = function(v) ESP.MaxDistance = v end
+})
+
+MiscTab:CreateSection("Auto Habilidades")
+MiscTab:CreateToggle({
+    Name = "Auto V4",
+    CurrentValue = false,
+    Flag = "AutoV4",
+    Callback = function(s)
+        autoV4 = s
+        if s then startV4() end
+    end
+})
+MiscTab:CreateToggle({
+    Name = "Dungeon Bypass TP",
+    CurrentValue = false,
+    Flag = "BypassTP",
+    Callback = function(s) BypassTP = s end
+})
+MiscTab:CreateSlider({
+    Name = "TP Altura",
+    Range = {10, 100},
+    Increment = 5,
+    CurrentValue = 40,
+    Flag = "AttackHeight",
+    Callback = function(v) AttackHeight = v end
+})
+
+Rayfield:LoadConfiguration()
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "Ariel Hub",
+    Text = "Cargado correctamente",
+    Duration = 5
+})
