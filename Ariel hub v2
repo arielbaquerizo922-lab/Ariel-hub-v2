@@ -1,5 +1,5 @@
 -- ==================================================
--- Ariel HUB + COKEBOYS MOVEMENT & ESP/VisualS
+-- Saritamol HUB + COKEBOYS MOVEMENT & ESP/VisualS
 -- ==================================================
 local Rayfield = loadstring(game:HttpGet'https://sirius.menu/rayfield')()
 local P = game:GetService'Players'
@@ -34,8 +34,8 @@ local DG = false
 local DGm = true
 local DGp = true
 local DGs = true
-local DGd = 2500
-local DGsp = 8
+local DGd = 400
+local DGsp = 3
 local ncl = false
 local autoV4 = false
 local BypassTP = false
@@ -328,7 +328,8 @@ function ESP.UpdateBillboard(entry)
     local distance = myHRP and math.floor((hrp.Position - myHRP.Position).Magnitude) or 0
     local displayName = ESP.StreamerMode and ("Jugador " .. player.UserId%100) or player.DisplayName
     local userName = ESP.StreamerMode and ("???") or player.Name
-    local nameStr = (displayName \~= userName) and (displayName .. " (@" .. userName .. ")") or displayName
+    -- Muestra DisplayName + @username si son diferentes, para identificar al jugador
+    local nameStr = (displayName ~= userName) and (displayName .. " (@" .. userName .. ")") or displayName
     entry.Header.Text = string.format("%s [%dm]", nameStr, distance)
     local hpRatio = math.clamp(hum.Health/math.max(hum.MaxHealth,1), 0, 1)
     entry.HealthBar.Size = UDim2.new(hpRatio, 0, 1, 0)
@@ -370,7 +371,7 @@ function ESP.UpdateLoop()
             pcall(function()
                 if ESP.Enabled then
                     for _, player in ipairs(P:GetPlayers()) do
-                        if player \~= LocalPlayer then
+                        if player ~= LocalPlayer then
                             local entry = ESP.Objects[player] or ESP.CreateBillboard(player)
                             if entry then ESP.UpdateBillboard(entry) end
                         end
@@ -385,6 +386,7 @@ end
 
 local function DGI()
     pcall(function()
+        -- Obtener SGE y V2 si aún no están disponibles
         if not SGE then
             local netFolder = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
             if netFolder then SGE = netFolder:FindFirstChild("RE/ShootGunEvent") end
@@ -393,6 +395,7 @@ local function DGI()
             local rem = ReplicatedStorage:FindFirstChild("Remotes")
             if rem then V2 = rem:FindFirstChild("Validator2") end
         end
+        -- Obtener ShootFunction para el validador de código
         local success, module = pcall(require, ReplicatedStorage:WaitForChild("Controllers", 5):WaitForChild("CombatController", 5))
         if success and type(module) == "table" and module.Attack then
             SF = upv(module.Attack, 9)
@@ -406,7 +409,7 @@ local function NV()
         return 0, 0 
     end
     local uv = getupvs(SF) or {}
-    if uv[DV.v21] \~= 727595 then
+    if uv[DV.v21] ~= 727595 then
         for i, v in pairs(uv) do
             if v == 727595 then
                 local o = i - 15
@@ -424,6 +427,7 @@ local function NV()
     local v6 = upv(SF, DV.v26)
     local v7 = upv(SF, DV.v27)
     if not (v1 and v2 and v3 and v4 and v5 and v6 and v7) then return 0, 0 end
+    -- Fórmula correcta (verificada contra el juego)
     local v8 = v6 * v2
     local v9 = (v5 * v2 + v6 * v1) % v3
     v9 = (v9 * v3 + v8) % v4
@@ -438,92 +442,48 @@ end
 
 local function DGT()
     local c = lp.Character
-    local r = c and c:FindFirstChild("HumanoidRootPart")
+    local r = c and c:FindFirstChild'HumanoidRootPart'
     if not r then return end
-    local cl, d = nil, math.max(DGd, 2500)
+    local cl, d = nil, DGd
     local rp = r.Position
-
-    local function checkPart(part)
-        if not part or not part:IsA("BasePart") then return end
-        local dx = (part.Position - rp).Magnitude
-        if dx < d then
-            d = dx
-            cl = part
-        end
-    end
-
     if DGm then
-        local E = workspace:FindFirstChild("Enemies")
+        local E = workspace:FindFirstChild'Enemies'
         if E then
             for _, e in next, E:GetChildren() do
-                local hr = e:FindFirstChild("HumanoidRootPart") or e.PrimaryPart
-                local h = e:FindFirstChildOfClass("Humanoid")
+                local hr = e:FindFirstChild'HumanoidRootPart' or e.PrimaryPart
+                local h = e:FindFirstChildOfClass'Humanoid'
                 if hr and h and h.Health > 0 then
-                    checkPart(hr)
+                    local dx = (hr.Position - rp).Magnitude
+                    if dx < d then d = dx; cl = hr end
                 end
             end
         end
     end
-
     if DGp then
         for _, pl in next, P:GetPlayers() do
-            if pl \~= lp and pl.Character then
-                local hr = pl.Character:FindFirstChild("HumanoidRootPart")
-                local h = pl.Character:FindFirstChildOfClass("Humanoid")
+            if pl ~= lp and pl.Character then
+                local hr = pl.Character:FindFirstChild'HumanoidRootPart'
+                local h = pl.Character:FindFirstChildOfClass'Humanoid'
                 if hr and h and h.Health > 0 then
-                    checkPart(hr)
+                    local dx = (hr.Position - rp).Magnitude
+                    if dx < d then d = dx; cl = hr end
                 end
             end
         end
     end
-
     if DGs then
-        for _, folderName in next, {"SeaBeasts", "SeaEvents"} do
-            local folder = workspace:FindFirstChild(folderName)
-            if folder then
-                for _, m in next, folder:GetChildren() do
-                    local nameL = string.lower(m.Name)
-
-                    if nameL:find("leviathan") then
-                        for _, part in next, m:GetDescendants() do
-                            if part:IsA("BasePart") then
-                                local pname = string.lower(part.Name)
-                                if pname:find("hitbox") or pname:find("segment") or pname:find("body") or pname:find("head") or pname:find("tail") or pname:find("part") then
-                                    checkPart(part)
-                                end
-                            end
-                        end
-                        if m.PrimaryPart then checkPart(m.PrimaryPart) end
-                    else
-                        local hr = m:FindFirstChild("HumanoidRootPart") or m.PrimaryPart
-                        if hr then
-                            checkPart(hr)
-                        else
-                            for _, part in next, m:GetDescendants() do
-                                if part:IsA("BasePart") then
-                                    checkPart(part)
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        for _, m in next, workspace:GetChildren() do
-            if typeof(m) == "Instance" and m:IsA("Model") then
-                local nameL = string.lower(m.Name)
-                if nameL:find("leviathan") then
-                    for _, part in next, m:GetDescendants() do
-                        if part:IsA("BasePart") then
-                            checkPart(part)
-                        end
+        for _, f in next, {workspace:FindFirstChild'SeaBeasts', workspace:FindFirstChild'SeaEvents'} do
+            if f then
+                for _, m in next, f:GetChildren() do
+                    local hr = m:FindFirstChild'HumanoidRootPart' or m.PrimaryPart
+                    if hr then
+                        local dx = (hr.Position - rp).Magnitude
+                        if dx < d then d = dx; cl = hr end
                     end
                 end
             end
         end
     end
-
     return cl
 end
 
@@ -557,7 +517,7 @@ local function GetClosestPlayer()
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
     local myPos = myChar.HumanoidRootPart.Position
     for _, p in pairs(P:GetPlayers()) do
-        if p \~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
+        if p ~= lp and p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character:FindFirstChild("Humanoid") then
             local hum = p.Character.Humanoid
             if hum.Health > 0 then
                 local dist = (p.Character.HumanoidRootPart.Position - myPos).Magnitude
@@ -865,7 +825,7 @@ RS.RenderStepped:Connect(function(deltaTime)
         if not my then return end
         local t = {}
         for _, pl in next, P:GetPlayers() do
-            if pl \~= lp and pl.Character then
+            if pl ~= lp and pl.Character then
                 local hr = pl.Character:FindFirstChild'HumanoidRootPart'
                 local h = pl.Character:FindFirstChild'Humanoid'
                 if hr and h and h.Health > 0 and (hr.Position - my.Position).Magnitude <= FAr then
@@ -900,12 +860,14 @@ RS.RenderStepped:Connect(function(deltaTime)
         local c = lp.Character
         local tool = c and c:FindFirstChildOfClass'Tool'
         if tool and tool.ToolTip == 'Gun' then
+            -- Inicializar remotes si aún no están listos
             if not SGE or not V2 or not SF then DGI() end
             local tar = DGT()
             if tar then
                 for i = 1, DGsp do
                     local cd, cnt = NV()
-                    if cd \~= 0 then
+                    if cd ~= 0 then
+                        -- Reset overheat ANTES de disparar (orden correcto del juego)
                         tool:SetAttribute('LocalOverheat', 0)
                         tool:SetAttribute('LocalTotalShots', (tool:GetAttribute('LocalTotalShots') or 0) + 1)
                         if V2 then V2:FireServer(cd, cnt) end
@@ -926,7 +888,7 @@ RS.Heartbeat:Connect(function()
         local closest, shortest = nil, math.huge
         local folder = workspace:FindFirstChild'Enemies' or workspace
         for _, obj in ipairs(folder:GetChildren()) do
-            if obj:IsA('Model') and obj \~= c then
+            if obj:IsA('Model') and obj ~= c then
                 local nameL = string.lower(obj.Name)
                 if nameL == "blank buddy" or nameL == "sombra" then continue end
                 local hum = obj:FindFirstChildOfClass'Humanoid'
@@ -955,7 +917,7 @@ mt.__index = newcclosure(function(self, k)
             local r = lp.Character and lp.Character:FindFirstChild'HumanoidRootPart'
             if r then
                 for _, pl in next, P:GetPlayers() do
-                    if pl \~= lp and pl.Character and pl.Character:FindFirstChild'HumanoidRootPart' then
+                    if pl ~= lp and pl.Character and pl.Character:FindFirstChild'HumanoidRootPart' then
                         local hr = pl.Character.HumanoidRootPart
                         local d = (r.Position - hr.Position).Magnitude
                         if d < sD and d <= soruR then sD = d; cl = hr end
@@ -1115,9 +1077,9 @@ CombatTab:CreateToggle({
 })
 CombatTab:CreateSlider({
     Name = 'Distancia',
-    Range = {100, 5000},
+    Range = {100, 3000},
     Increment = 50,
-    CurrentValue = 2500,
+    CurrentValue = 400,
     Flag = 'DGd',
     Callback = function(v) DGd = v end
 })
@@ -1125,7 +1087,7 @@ CombatTab:CreateSlider({
     Name = 'Disparos/Frame',
     Range = {1, 15},
     Increment = 1,
-    CurrentValue = 8,
+    CurrentValue = 3,
     Flag = 'DGsp',
     Callback = function(v) DGsp = v end
 })
