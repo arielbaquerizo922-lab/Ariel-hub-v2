@@ -41,7 +41,7 @@ local DGsp = 3
 local ncl = false
 local autoV4 = false
 local BypassTP = false
-local AttackHeight = 40
+local AttackHeight = 30
 local InfiniteZoom = false
 local savedZoom = lp.CameraMaxZoomDistance
 
@@ -87,8 +87,6 @@ Movement.WaterPlatform = nil
 Movement.LavaPlatform = nil
 Movement.SpeedBoost = false
 Movement.SpeedValue = 2.0
-Movement.SuperJump = false
-Movement.SuperJumpPower = 140
 Movement.WalkOnWater = false
 Movement.WalkOnLava = false
 Movement.InfiniteAirJump = false
@@ -1074,14 +1072,14 @@ CombatTab:CreateToggle({
         if vatt then
             FruitAttackKitsuneConnection = task.spawn(function()
                 while FruitAttackKitsune do
-                    task.wait(0.001)
+                    task.wait(0.01)
                     local targetPlayer = GetNearestPlayer()
                     if targetPlayer and targetPlayer.Character then
                         local tool = lp.Character:FindFirstChild("Kitsune-Kitsune")
                         if tool then
                             local direction = (targetPlayer.Character.HumanoidRootPart.Position - lp.Character.HumanoidRootPart.Position).Unit
                             pcall(function()
-                                tool:WaitForChild("LeftClickRemote"):FireServer(direction, 1, true)
+                                tool:WaitForChild("LeftClickRemote"):FireServer(direction, 7, true)
                             end)
                         end
                     end
